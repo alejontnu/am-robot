@@ -15,8 +15,8 @@ setuptools.setup(
     project_urls={
         "Bug Tracker": "https://github.com/alejontnu/am-robot/issues",
     },
-    entry_points = {
-        'console_scripts': ['run=am-robot.command_line:main'],
+    #entry_points = {
+    #    'console_scripts': ['run=am-robot.command_line:main'],
     },
     classifiers=[
         "Programming Language :: Python :: 3",
