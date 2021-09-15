@@ -27,6 +27,6 @@ setuptools.setup(
     package_dir={"": "src"},
     #package_data={'': ['benchmark.txt']},
     include_package_data=True,
-    install_requires=["frankx","argparse","numpy"],
+    install_requires=["argparse","numpy"],
     python_requires=">=3.6",
 )
