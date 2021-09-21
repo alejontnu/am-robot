@@ -1,6 +1,6 @@
 import os
 # import am_robot
-# from gcodeparser import GcodeParser
+from gcodeparser import GcodeParser
 
 # TODO - filename from argparse
 
@@ -31,8 +31,9 @@ def main():
         gcode = file.read()
 
 
-    # parsed_gcode = GcodeParser(gcode)
-    # print(parsed_gcode.lines)
+    parsed_gcode = GcodeParser(gcode)
+    for line in parsed_gcode.lines:
+        print(line)
 
 if __name__ == '__main__':
     main()
