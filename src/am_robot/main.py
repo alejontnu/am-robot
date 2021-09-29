@@ -1,7 +1,7 @@
 import os
 import time
 from gcodeparser import GcodeParser
-
+import pandas as pd
 from am_robot import utility
 
 # TODO - filename from argparse
@@ -10,9 +10,9 @@ from am_robot import utility
 def main():
 
     # Initial extruder status
-    am_status = utility.Status(0,0,0,0,0,0,1)
-    am_machine = utility.Machine(0,0,0)
-    print(str(am_status))
+    am_geometry = utility.Geometry_Status(0,0,0,0,0,0,0,0,0,1)
+    am_machine = utility.Machine_Status(0,0,0)
+    print(str(am_geometry))
     print(str(am_machine))
 
     # Gcode file location
@@ -39,6 +39,10 @@ def main():
     # Parse gcode
     parsed_gcode = GcodeParser(gcode)
 
+    GcodePandas = pd.DataFrame(parsed_gcode.lines,columns=["command","params","comment"])
+    print(GcodePandas.iloc[1])
+    print(GcodePandas)
+
     # Examble GcodeLine format
     # GcodeLine(
     #     command=('G',1),
@@ -46,7 +50,6 @@ def main():
     #     comment='Linear Move and Extrude')
 
     for line in parsed_gcode.lines:
-        
         start_time = time.time()
 
         current_command = line.command
@@ -54,46 +57,51 @@ def main():
         current_comment = line.comment
 
         if current_command[0] == 'G':
-            am_status.gcommand = current_command[1]
+            am_geometry.gcommand = current_command[1]
             if current_command[1] == 0 or current_command[1] == 1:
-                am_status.move_type = 'linear'
+                am_geometry.move_type = 'linear'
                 for key in current_params:
+                    #am_geometry.key = line.get_param(key)
                     if key == 'X':
-                        am_status.X = line.get_param(key)
+                        am_geometry.X = line.get_param(key)
                     elif key == 'Y':
-                        am_status.Y = line.get_param(key)
+                        am_geometry.Y = line.get_param(key)
                     elif key == 'Z':
-                        am_status.Z = line.get_param(key)
+                        am_geometry.Z = line.get_param(key)
                     elif key == 'F':
-                        am_status.F = line.get_param(key)
+                        am_geometry.F = line.get_param(key)
                     elif key == 'E':
-                        am_status.E = line.get_param(key)
+                        am_geometry.E = line.get_param(key)
+
             elif current_command[1] == 2 or current_command[1] == 3:
                 if current_command[1] == 2:
-                    am_status.move_type = 'cw_arc'
+                    am_geometry.move_type = 'cw_arc'
                 else:
-                    am_status.move_type = 'ccw_arc'
+                    am_geometry.move_type = 'ccw_arc'
                 for key in current_params:
                     if key == 'X':
-                        am_status.X = line.get_param(key)
+                         am_geometry.X = line.get_param(key)
                     elif key == 'Y':
-                        am_status.Y = line.get_param(key)
+                         am_geometry.Y = line.get_param(key)
                     elif key == 'Z':
-                        am_status.Z = line.get_param(key)
+                         am_geometry.Z = line.get_param(key)
                     elif key == 'F':
-                        am_status.F = line.get_param(key)
+                         am_geometry.F = line.get_param(key)
                     elif key == 'E':
-                        am_status.E = line.get_param(key)
+                         am_geometry.E = line.get_param(key)
                     elif key == 'R':
                         # TODO allow arc moves, or make them linear segments
                         print("R move - ignored")
-                        #am_status.R = line.get_param(key)
+                        #am_geometry.R = line.get_param(key)
                     elif key == 'I':
                         print("I move - ignored")
-                        #am_status.I = line.get_param(key)
+                        #am_geometry.I = line.get_param(key)
                     elif key == 'J':
                         print("J move - ignored")
-                        #am_status.J = line.get_param(key)
+                        #am_geometry.J = line.get_param(key)
+                    else:
+                        am_geometry.__name__ = line.get_param(key)
+
             elif current_command[1] == 10:
                 print("start retraction move")
             elif current_command[1] == 11:
@@ -120,7 +128,7 @@ def main():
         else:
             print("Neither G nor M command")
 
-        print(str(am_status))
+        print(str(am_geometry))
 
         end_time = time.time()
         if end_time-start_time > 0.0003: # Have about 300 us to spare to achieve 1kHz

@@ -27,6 +27,6 @@ setuptools.setup(
     package_dir={"": "src"},
     #package_data={'': ['benchmark.txt']},
     include_package_data=True,
-    install_requires=["argparse","gcodeparser"],
+    install_requires=["argparse","gcodeparser","pandas"],
     python_requires=">=3.6",
 )
