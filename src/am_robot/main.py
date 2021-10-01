@@ -1,6 +1,8 @@
 import os
 import time
+import sys
 from gcodeparser import GcodeParser
+from frankx import Affine, LinearRelativeMotion, Robot
 import pandas as pd
 from am_robot import utility
 
@@ -8,12 +10,14 @@ from am_robot import utility
 # Currently requires .gcode to be in data folder
 
 def main():
+    # Initialize robot
+    #robot = Robot("172.16.0.2")
+    # Input frequency
+    #Hz 1000
 
-    # Initial extruder status
-    am_geometry = utility.Geometry_Status(0,0,0,0,0,0,0,0,0,1)
+    # Initialize extruder status
+    am_geometry = utility.Geometry_Status(0,0,0,0,0,0,0,0,0,'idle')
     am_machine = utility.Machine_Status(0,0,0)
-    print(str(am_geometry))
-    print(str(am_machine))
 
     # Gcode file location
     filename = 'dontprint.gcode'
@@ -32,16 +36,24 @@ def main():
 
     # print(am_robot.__file__.split)
 
-    # Gcode load and read
+    # Gcode load, read and parse
     with open(fullpath,'r') as file:
         gcode = file.read()
-
-    # Parse gcode
     parsed_gcode = GcodeParser(gcode)
 
+    # Single line version, slower as the parsing is done each 
+    with open(fullpath,'r') as f:
+        for index, linje in enumerate(f):
+            #print("line {}: {}".format(index, linje.strip()))
+            if linje[0] == 'G' or linje[0] == 'M':
+                parsedlinje = GcodeParser(linje)
+                pandalinje = pd.DataFrame(parsedlinje.lines,columns=["command","params","comment"])
+                ownparsed = utility.format_gcodeline(linje)
+                
     GcodePandas = pd.DataFrame(parsed_gcode.lines,columns=["command","params","comment"])
-    print(GcodePandas.iloc[1])
-    print(GcodePandas)
+    
+    #print(GcodePandas.iloc[1])
+    #print(GcodePandas)
 
     # Examble GcodeLine format
     # GcodeLine(
@@ -50,8 +62,8 @@ def main():
     #     comment='Linear Move and Extrude')
 
     for line in parsed_gcode.lines:
+        # Start time for checking loop time
         start_time = time.time()
-
         current_command = line.command
         current_params = line.params
         current_comment = line.comment
@@ -72,6 +84,8 @@ def main():
                         am_geometry.F = line.get_param(key)
                     elif key == 'E':
                         am_geometry.E = line.get_param(key)
+                # robot_movement(am_geometry)
+                # update_extruder(am_geometry)
 
             elif current_command[1] == 2 or current_command[1] == 3:
                 if current_command[1] == 2:
@@ -104,14 +118,17 @@ def main():
 
             elif current_command[1] == 10:
                 print("start retraction move")
+                am_geometry.move_type = 'retraction'
             elif current_command[1] == 11:
                 print("Start recover move after a G10")
+                am_geometry.move_type = recover
             elif current_command[1] == 20:
                 print("set inches")
             elif current_command[1] == 21:
                 print("set millimeters")
             elif current_command[1] == 28:
                 print("auto home move")
+                am_geometry.move_type = 'home'
             elif current_command[1] == 90:
                 print("Set absolute positioning")
             elif current_command[1] == 91:
@@ -119,16 +136,34 @@ def main():
             elif current_command[1] == 92:
                 print("Set positioning")
             else:
-                print("No action for given G-command number")
+                print(f"No action for given G-command number: {current_command[1]}")
             
             #do stuff
         elif current_command[0] == 'M':
             am_machine.mcommand = current_command[1]
+            if current_command[1] == 82:
+                print("E absolute")
+            elif current_command[1] == 84:
+                print("Disable motors")
+            elif current_command[1] == 104:
+                print("Set hotend temperature")
+            elif current_command[1] == 105:
+                print("Report temperature")
+            elif current_command[1] == 106:
+                print("Set fan speed")
+            elif current_command[1] == 107:
+                print("Fan off")
+            elif current_command[1] == 109:
+                print("Wait for hotend temperature")
+            elif current_command[1] == 140:
+                print("Set bed temperature")
+            else:
+                print(f"No action for M command number: {current_command[1]}")
             #do other stuff
         else:
             print("Neither G nor M command")
 
-        print(str(am_geometry))
+        #print(str(am_geometry))
 
         end_time = time.time()
         if end_time-start_time > 0.0003: # Have about 300 us to spare to achieve 1kHz

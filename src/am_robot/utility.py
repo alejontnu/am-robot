@@ -25,6 +25,29 @@ class Machine_Status: # M-commands, related to machine settings, temperature, mo
 	def __str__(self):
 		return 'M command: M' + str(self.mcommand) + ", Nozzle temp: " + str(self.nozzle_temp) + ", Bed temp: " + str(self.bed_temp)
 
+def format_gcodeline(line):
+	comment = ''
+	try:
+		segment_comment = line.split(';')
+		comment = segment_comment[1]
+	except:
+		pass
+	else:
+		line = segment_comment[0]
+	finally:
+		segmented = line.split()
+		command_string = segmented.pop(0)
+		command = (command_string[0],int(command_string[1:len(command_string)]))
+		params = {}
+		for element in segmented:
+			params[element[0]] = float(element[1:len(element)])
+		dict_format_line = {
+			"command": command,
+			"params": params,
+			"comment": comment
+		}
+	return dict_format_line
+
 def find_key(key): # depreciated
 	return{
 	'X':'X',
