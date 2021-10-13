@@ -26,6 +26,19 @@ class Machine_Status: # M-commands, related to machine settings, temperature, mo
 		return 'M command: M' + str(self.mcommand) + ", Nozzle temp: " + str(self.nozzle_temp) + ", Bed temp: " + str(self.bed_temp)
 
 def format_gcodeline(line):
+	'''
+	Helper function that converts a parsed Gcode line into a dict structure
+
+	Parameters:
+	-----------
+	line: class
+		the GcodeLine class from gcodeparser
+
+	Returns:
+	-----------
+	Gline: dict
+		dictionary containing gcode line command, parameters and comment
+	'''
 	comment = ''
 	try:
 		segment_comment = line.split(';')
@@ -41,12 +54,12 @@ def format_gcodeline(line):
 		params = {}
 		for element in segmented:
 			params[element[0]] = float(element[1:len(element)])
-		dict_format_line = {
+		Gline = {
 			"command": command,
 			"params": params,
 			"comment": comment
 		}
-	return dict_format_line
+	return Gline
 
 def find_key(key): # depreciated
 	return{
