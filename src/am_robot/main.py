@@ -29,7 +29,6 @@ def main():
 
     # Initialize robot
     current_pose, robot, Connected = dynamics.init_robot(args.host)
-    print(current_pose)
 
     current_location = [0,0,0]
     current_rotation = [math.pi/2,0,0]
@@ -46,8 +45,8 @@ def main():
     parseAll = True
 
     # Initialize extruder status
-    am_geometry = utility.Geometry_Status(0,0,0,0,0,0,0,0,0,'idle')
-    am_machine = utility.Machine_Status(0,0,0)
+    Geometry = utility.Geometry_Status(0,0,0,0,0,0,0,0,0,'idle')
+    Machine = utility.Machine_Status(0,0,0)
 
     # Gcode file location
     file_extrension = '.gcode'
@@ -98,140 +97,115 @@ def main():
     for line in gcodelines:
         # Start time for checking loop time
         start_time = time.time()
-        current_command = line.command
-        current_params = line.params
-        current_comment = line.comment
 
         if line.command[0] == 'G':
-            am_geometry.gcommand = line.command[1]
+            Geometry.gcommand = line.command[1]
             if line.command[1] == 0 or line.command[1] == 1:
-                am_geometry.move_type = 'linear'
+                Geometry.move_type = 'linear'
+
+                current_pose[0] = Geometry.X
+                current_pose[1] = Geometry.Y
+                current_pose[2] = Geometry.Z
+
                 for key in line.params:
-                    #am_geometry.key = line.get_param(key)
-                    if key == 'X': # abs or relative position
-                        current_pose[0] = am_geometry.X
-                        am_geometry.X = line.get_param(key)/unit_divisor
-                        target_pose[0] = am_geometry.X
-                    elif key == 'Y': # abs or relative position
-                        current_pose[1] = am_geometry.Y
-                        am_geometry.Y = line.get_param(key)/unit_divisor
-                        target_pose[1] = am_geometry.Y
-                    elif key == 'Z': # abs or relative position
-                        current_pose[2] = am_geometry.Z
-                        am_geometry.Z = line.get_param(key)/unit_divisor
-                        target_pose[2] = am_geometry.Z
-                    elif key == 'F': # Sets feedrate [mm/min]
-                        am_geometry.F = line.get_param(key)/unit_divisor
-                    elif key == 'E': # abs or relative position of filament [unit]
-                        am_geometry.E = line.get_param(key)/unit_divisor
+                    try:
+                        Geometry.__dict__[key] = line.get_param(key)/unit_divisor            
+                    except:
+                        print("Key "+ key +" could not be added to Geometry")
 
-                # robot_movement(am_geometry)
-                # update_extruder(am_geometry)
+                target_pose[0] = Geometry.X
+                target_pose[1] = Geometry.Y
+                target_pose[2] = Geometry.Z
 
-                dynamics.linear_move(current_pose,target_pose,am_geometry,robot)
+                dynamics.linear_move(current_pose,target_pose,Geometry,robot)
 
             elif line.command[1] == 2 or line.command[1] == 3:
                 if line.command[1] == 2:
-                    am_geometry.move_type = 'cw_arc'
+                    Geometry.move_type = 'cw_arc'
                 else:
-                    am_geometry.move_type = 'ccw_arc'
+                    Geometry.move_type = 'ccw_arc'
+
+                current_pose[0] = Geometry.X
+                current_pose[1] = Geometry.Y
+                current_pose[2] = Geometry.Z
+
                 for key in line.params:
-                    if key == 'X':
-                        current_pose[0] = am_geometry.X
-                        am_geometry.X = line.get_param(key)/unit_divisor
-                        target_pose[0] = am_geometry.X
-                    elif key == 'Y':
-                        current_pose[1] = am_geometry.Y
-                        am_geometry.Y = line.get_param(key)/unit_divisor
-                        target_pose[1] = am_geometry.Y
-                    elif key == 'Z':
-                        current_pose[2] = am_geometry.Z
-                        am_geometry.Z = line.get_param(key)/unit_divisor
-                        target_pose[2] = am_geometry.Z
-                    elif key == 'F':
-                        am_geometry.F = line.get_param(key)/unit_divisor
-                    elif key == 'E':
-                        am_geometry.E = line.get_param(key)/unit_divisor
-                    elif key == 'R':
-                        # TODO allow arc moves, or make them linear segments
-                        print("R move - ignored")
-                        #am_geometry.R = line.get_param(key)/unit_divisor
-                    elif key == 'I':
-                        print("I move - ignored")
-                        #am_geometry.I = line.get_param(key)/unit_divisor
-                    elif key == 'J':
-                        print("J move - ignored")
-                        #am_geometry.J = line.get_param(key)/unit_divisor
-                    else:
-                        am_geometry.__name__ = line.get_param(key)
+                    try:
+                        Geometry.__dict__[key] = line.get_param(key)/unit_divisor            
+                    except:
+                        print("Key "+ key +" could not be added to Geometry")
 
-                    #dynamics.curved_move(current_pose,target_pose,am_geometry)
+                target_pose[0] = Geometry.X
+                target_pose[1] = Geometry.Y
+                target_pose[2] = Geometry.Z
+
+                #dynamics.curved_move(current_pose,target_pose,Geometry)
 
 
-            elif current_command[1] == 10: # Seems to not be used in favor of G1 commands doing the same
+            elif line.command[1] == 10: # Seems to not be used in favor of G1 commands doing the same
                 print("start retraction move")
-                am_geometry.move_type = 'retraction'
-            elif current_command[1] == 11:
+                Geometry.move_type = 'retraction'
+            elif line.command[1] == 11:
                 print("Start recover move after a G10")
-                am_geometry.move_type = recover
-            elif current_command[1] == 20:
+                Geometry.move_type = recover
+            elif line.command[1] == 20:
                 unit_divisor = 39.37007874 # Inches per meter
                 print("set inches")
-            elif current_command[1] == 21:
+            elif line.command[1] == 21:
                 unit_divisor = 1000 # Millimeter per meter
                 print("set millimeters")
-            elif current_command[1] == 28:
+            elif line.command[1] == 28:
                 print("auto home move")
-                am_geometry.move_type = 'home'
+                Geometry.move_type = 'home'
                 if line.params == '':
-                    am_geometry.X = 0
-                    am_geometry.Y = 0
-                    am_geometry.Z = 0
+                    Geometry.X = 0
+                    Geometry.Y = 0
+                    Geometry.Z = 0
                 else:
                     for key in line.params:
                         if key == 'X': # abs or relative position
-                            am_geometry.X = 0
+                            Geometry.X = 0
                         elif key == 'Y': # abs or relative position
-                            am_geometry.Y = 0
+                            Geometry.Y = 0
                         elif key == 'Z': # abs or relative position
-                            am_geometry.Z = 0
+                            Geometry.Z = 0
                         else:
                             print(f"No home move action for key: {key}")
-            elif current_command[1] == 90:
+            elif line.command[1] == 90:
                 print("Set absolute positioning")
-            elif current_command[1] == 91:
+            elif line.command[1] == 91:
                 print("Set relative positioning")
-            elif current_command[1] == 92:
+            elif line.command[1] == 92:
                 print("Set positioning")
             else:
-                print(f"No action for given G-command number: {current_command[1]}")
+                print(f"No action for given G-command number: {line.command[1]}")
             
             #do stuff
-        elif current_command[0] == 'M':
-            am_machine.mcommand = current_command[1]
-            if current_command[1] == 82:
+        elif line.command[0] == 'M':
+            Machine.mcommand = line.command[1]
+            if line.command[1] == 82:
                 print("E absolute")
-            elif current_command[1] == 84:
+            elif line.command[1] == 84:
                 print("Disable motors")
-            elif current_command[1] == 104:
+            elif line.command[1] == 104:
                 print("Set hotend temperature")
-            elif current_command[1] == 105:
+            elif line.command[1] == 105:
                 print("Report temperature")
-            elif current_command[1] == 106:
+            elif line.command[1] == 106:
                 print("Set fan speed")
-            elif current_command[1] == 107:
+            elif line.command[1] == 107:
                 print("Fan off")
-            elif current_command[1] == 109:
+            elif line.command[1] == 109:
                 print("Wait for hotend temperature")
-            elif current_command[1] == 140:
+            elif line.command[1] == 140:
                 print("Set bed temperature")
             else:
-                print(f"No action for M command number: {current_command[1]}")
+                print(f"No action for M command number: {line.command[1]}")
             #do other stuff
         else:
             print("Neither G nor M command")
 
-        #print(str(am_geometry))
+        #print(str(Geometry))
 
         end_time = time.time()
         if end_time-start_time > 0.0003: # Have about 300 us to spare to achieve 1kHz

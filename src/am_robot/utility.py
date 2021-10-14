@@ -1,6 +1,6 @@
 
 
-class Geometry_Status: # G-commands, related to geometry, movement type, extrusion volume, etc
+class GeometryState: # G-commands, related to geometry, movement type, extrusion volume, etc
 	def __init__(self,_gcommand,_x_pos,_y_pos,_z_pos,_ext_speed,_ext_volume,_radius,_i_length,_j_length,_move_type):
 		self.gcommand = _gcommand
 		self.X = _x_pos
@@ -16,7 +16,7 @@ class Geometry_Status: # G-commands, related to geometry, movement type, extrusi
 	def __str__(self):
 		return 'G command: G' + str(self.gcommand) + ', x pos: ' + str(self.X) + ", y pos: " + str(self.Y) + ", z pos: " + str(self.Z) + ", ext speed: " + str(self.F) + ", ext volume: " + str(self.E) + ", Arc radius: " + str(self.R) + ", Arc i-length: " + str(self.I) + ", Arc j-length: " + str(self.J) + ", Movement type: " + str(self.move_type)
 
-class Machine_Status: # M-commands, related to machine settings, temperature, motors, etc
+class MachineState: # M-commands, related to machine settings, temperature, motors, etc
 	def __init__(self,_mcommand,_nozzle_temp,_bed_temp):
 		self.mcommand = _mcommand
 		self.nozzle_temp = _nozzle_temp

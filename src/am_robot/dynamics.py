@@ -28,7 +28,7 @@ def init_robot(robot_ip):
 		robot.set_dynamic_rel(0.05) # Default 0.1
 
 		# Joint motion - Wierd error here...
-	    #robot.move(JointMotion([-1.811944, 1.179108, 1.757100, -2.14162, -1.143369, 1.633046, -0.432171]))
+		#robot.move(JointMotion([-1.811944, 1.179108, 1.757100, -2.14162, -1.143369, 1.633046, -0.432171]))
 
 		# Define and move forwards
 		camera_frame = Affine(y=0.05)
@@ -43,7 +43,7 @@ def init_robot(robot_ip):
 
 		return current_pose, robot, Connected
 
-def linear_move(current_pose,target_pose,am_geometry,robot):
+def linear_move(current_pose,target_pose,Geometry,robot):
 	print("linear move")
 	print(robot)
 	if robot != 0:
@@ -51,7 +51,7 @@ def linear_move(current_pose,target_pose,am_geometry,robot):
 		lin_move = LinearMotion(Affine(target_pose[0],target_pose[1],target_pose[2] + Z_offset,target_pose[3],target_pose[4],target_pose[5]),elbow=1.7)
 		robot.move(lin_move)
 
-def curved_move(current_pose,target_pose,am_geometry):
+def curved_move(current_pose,target_pose,Geometry):
 	print("curved move")
 
 '''
