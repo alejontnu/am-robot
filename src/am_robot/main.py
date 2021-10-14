@@ -3,6 +3,7 @@ import time
 import sys
 import argparse
 import pandas as pd
+import math
 
 from gcodeparser import GcodeParser
 from frankx import Affine, LinearRelativeMotion, Robot
@@ -11,7 +12,7 @@ from am_robot import utility
 from am_robot import dynamics
 
 
-# TODO - filename from argparse
+# TODO - filename from argparse and automatic file locating
 # Currently requires .gcode to be in data folder
 
 def main():
@@ -23,15 +24,24 @@ def main():
             add_help=True)
 
     parser.add_argument('--host', default='10.0.0.2', help='FCI IP of the robot')
+    parser.add_argument('--Gfile', default='dontprint', help='Gcode file name')
     args = parser.parse_args()
 
     # Initialize robot
-    current_pose, robot = dynamics.init_robot(args.host)
+    current_pose, robot, Connected = dynamics.init_robot(args.host)
+    print(current_pose)
+
+    current_location = [0,0,0]
+    current_rotation = [math.pi/2,0,0]
+    current_pose = [current_location[0],current_location[1],current_location[2],current_rotation[0],current_rotation[1],current_rotation[2]]
+    target_location = [0,0,0]
+    target_rotation = [math.pi/2,0,0]
+    target_pose = [target_location[0],target_location[1],target_location[2],target_rotation[0],target_rotation[1],target_rotation[2]]
 
     # Input frequency
     Hz = 1000
     unit_divisor = 1000 # Default to mm
-    home_point_offset = [0.5, 0.5, 0] #x,y,z coordinate of home point relative to base frame
+    home_point_offset = [0.480, 0.0, 0.40] # x,y,z coordinate of home point relative to base frame
 
     parseAll = True
 
@@ -40,7 +50,9 @@ def main():
     am_machine = utility.Machine_Status(0,0,0)
 
     # Gcode file location
-    filename = 'dontprint.gcode'
+    file_extrension = '.gcode'
+    if file_extrension not in args.Gfile:
+        filename = args.Gfile + '.gcode'
     folder = 'data'
 
     fullpath = os.path.join('.',folder,filename)
@@ -54,34 +66,36 @@ def main():
     #         print(os.path.join(root, file))
     #     print('stop')
 
-    # print(am_robot.__file__.split)
-
     # Gcode load, read and parse
     with open(fullpath,'r') as file:
-        gcode = file.read()
-    parsed_gcode = GcodeParser(gcode)
-
-    # Single line version, slower as the parsing is done each 
+        gcodelines = GcodeParser(file.read()).lines
+    
+    '''
+    # Single line version, slower as the parsing is done for each line inside the loop
     with open(fullpath,'r') as f:
         for index, linje in enumerate(f):
             #print("line {}: {}".format(index, linje.strip()))
             if linje[0] == 'G' or linje[0] == 'M':
-                parsedlinje = GcodeParser(linje)
-                pandalinje = pd.DataFrame(parsedlinje.lines,columns=["command","params","comment"])
+                parsed_gline = GcodeParser(linje).lines
+                pandalinje = pd.DataFrame(parsed_gline,columns=["command","params","comment"])
                 Gline = utility.format_gcodeline(linje)
-                
-    GcodePandas = pd.DataFrame(parsed_gcode.lines,columns=["command","params","comment"])
-    
-    #print(GcodePandas.iloc[1])
-    #print(GcodePandas)
+                print(parsed_gline)
+                print(pandalinje)
+                print(Gline)
+    '''
 
-    # Examble GcodeLine format
+    # Alternative Pandas dict format. Larger size (x40)          
+    #GcodePandas = pd.DataFrame(gcodelines,columns=["command","params","comment"])
+
+    # Example GcodeLine format
     # GcodeLine(
     #     command=('G',1),
     #     params={'X':12.3,'Y':7.4,'E':15.5},
     #     comment='Linear Move and Extrude')
+    #
+    # Gcode lengths are in mm or inches,and are therefor converted to meter by deviding by the unit_divisor
 
-    for line in parsed_gcode.lines:
+    for line in gcodelines:
         # Start time for checking loop time
         start_time = time.time()
         current_command = line.command
@@ -95,17 +109,26 @@ def main():
                 for key in line.params:
                     #am_geometry.key = line.get_param(key)
                     if key == 'X': # abs or relative position
+                        current_pose[0] = am_geometry.X
                         am_geometry.X = line.get_param(key)/unit_divisor
+                        target_pose[0] = am_geometry.X
                     elif key == 'Y': # abs or relative position
+                        current_pose[1] = am_geometry.Y
                         am_geometry.Y = line.get_param(key)/unit_divisor
+                        target_pose[1] = am_geometry.Y
                     elif key == 'Z': # abs or relative position
+                        current_pose[2] = am_geometry.Z
                         am_geometry.Z = line.get_param(key)/unit_divisor
+                        target_pose[2] = am_geometry.Z
                     elif key == 'F': # Sets feedrate [mm/min]
                         am_geometry.F = line.get_param(key)/unit_divisor
                     elif key == 'E': # abs or relative position of filament [unit]
                         am_geometry.E = line.get_param(key)/unit_divisor
+
                 # robot_movement(am_geometry)
                 # update_extruder(am_geometry)
+
+                dynamics.linear_move(current_pose,target_pose,am_geometry,robot)
 
             elif line.command[1] == 2 or line.command[1] == 3:
                 if line.command[1] == 2:
@@ -114,15 +137,21 @@ def main():
                     am_geometry.move_type = 'ccw_arc'
                 for key in line.params:
                     if key == 'X':
-                         am_geometry.X = line.get_param(key)/unit_divisor
+                        current_pose[0] = am_geometry.X
+                        am_geometry.X = line.get_param(key)/unit_divisor
+                        target_pose[0] = am_geometry.X
                     elif key == 'Y':
-                         am_geometry.Y = line.get_param(key)/unit_divisor
+                        current_pose[1] = am_geometry.Y
+                        am_geometry.Y = line.get_param(key)/unit_divisor
+                        target_pose[1] = am_geometry.Y
                     elif key == 'Z':
-                         am_geometry.Z = line.get_param(key)/unit_divisor
+                        current_pose[2] = am_geometry.Z
+                        am_geometry.Z = line.get_param(key)/unit_divisor
+                        target_pose[2] = am_geometry.Z
                     elif key == 'F':
-                         am_geometry.F = line.get_param(key)/unit_divisor
+                        am_geometry.F = line.get_param(key)/unit_divisor
                     elif key == 'E':
-                         am_geometry.E = line.get_param(key)/unit_divisor
+                        am_geometry.E = line.get_param(key)/unit_divisor
                     elif key == 'R':
                         # TODO allow arc moves, or make them linear segments
                         print("R move - ignored")
@@ -135,6 +164,9 @@ def main():
                         #am_geometry.J = line.get_param(key)/unit_divisor
                     else:
                         am_geometry.__name__ = line.get_param(key)
+
+                    #dynamics.curved_move(current_pose,target_pose,am_geometry)
+
 
             elif current_command[1] == 10: # Seems to not be used in favor of G1 commands doing the same
                 print("start retraction move")
@@ -205,6 +237,7 @@ def main():
         if end_time-start_time > 0.0003: # Have about 300 us to spare to achieve 1kHz
             print(f"runtime loop = {end_time-start_time} > 300 us.")
         #time.sleep(0.5) # TODO - change to interval instead of pause
+    
 
 if __name__ == '__main__':
     main()

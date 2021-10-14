@@ -1,12 +1,14 @@
-from frankx import Affine, LinearRelativeMotion, Robot
+from frankx import Affine, LinearMotion, Robot
 
 def init_robot(robot_ip):
 
 	# To skip connection when not at robot for testing other functions without connection timeout
 	try_to_connect = False
+	Connected = False
+
 	if not try_to_connect:
 		print("Skipped trying to connect to robot with IP: " + robot_ip)
-		return 0,0
+		return 0,0, Connected
 
 	try:
 		print("Attempting to connect to robot...")
@@ -16,6 +18,7 @@ def init_robot(robot_ip):
 		raise e	
 	else:
 		print("Connected to robot in IP: " + robot_ip)
+		Connected = True
 		robot.set_default_bahavior()
 
 		# Recover from errors
@@ -25,8 +28,7 @@ def init_robot(robot_ip):
 		robot.set_dynamic_rel(0.05) # Default 0.1
 
 		# Joint motion - Wierd error here...
-		#m_joint = JointMotion([-1.811944, 1.179108, 1.757100, -2.14162, -1.143369, 1.633046, -0.432171])
-	    #robot.move(m_joint)
+	    #robot.move(JointMotion([-1.811944, 1.179108, 1.757100, -2.14162, -1.143369, 1.633046, -0.432171]))
 
 		# Define and move forwards
 		camera_frame = Affine(y=0.05)
@@ -36,8 +38,21 @@ def init_robot(robot_ip):
 
 		# Get the current pose
 		current_pose = robot.current_pose()
+		print("current pose: ")
+		print(current_pose)
 
-		return current_pose, robot
+		return current_pose, robot, Connected
+
+def linear_move(current_pose,target_pose,am_geometry,robot):
+	print("linear move")
+	print(robot)
+	if robot != 0:
+		Z_offset = 0.2
+		lin_move = LinearMotion(Affine(target_pose[0],target_pose[1],target_pose[2] + Z_offset,target_pose[3],target_pose[4],target_pose[5]),elbow=1.7)
+		robot.move(lin_move)
+
+def curved_move(current_pose,target_pose,am_geometry):
+	print("curved move")
 
 '''
 motion = LinearRelativeMotion(Affine(0.2, 0.0, 0.0))

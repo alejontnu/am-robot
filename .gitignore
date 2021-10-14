@@ -128,5 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Gcode files
+*.gcode
+
 # User made files
 psudo.txt
+
