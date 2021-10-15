@@ -57,13 +57,10 @@ def main():
     fullpath = os.path.join('.',folder,filename)
 
     # for root, dirs, files in os.walk(".", topdown=True):
-    #     print('start')
     #     for dir in dirs:
     #         print(os.path.join(root, dir))
-    #     print('stop-start')
     #     for file in files:
     #         print(os.path.join(root, file))
-    #     print('stop')
 
     # Gcode load, read and parse
     with open(fullpath,'r') as file:
@@ -109,7 +106,10 @@ def main():
 
                 for key in line.params:
                     try:
-                        Geometry.__dict__[key] = line.get_param(key)/unit_divisor            
+                        if key == 'X' or key == 'Y' or key == 'Z':
+                            Geometry.__dict__[key] = line.get_param(key)/unit_divisor
+                        else:
+                            Geometry.__dict__[key] = line.get_param(key)            
                     except:
                         print("Key "+ key +" could not be added to Geometry")
 
@@ -131,7 +131,10 @@ def main():
 
                 for key in line.params:
                     try:
-                        Geometry.__dict__[key] = line.get_param(key)/unit_divisor            
+                        if key == 'X' or key == 'Y' or key == 'Z':
+                            Geometry.__dict__[key] = line.get_param(key)/unit_divisor
+                        else:
+                            Geometry.__dict__[key] = line.get_param(key)            
                     except:
                         print("Key "+ key +" could not be added to Geometry")
 
@@ -147,7 +150,7 @@ def main():
                 Geometry.move_type = 'retraction'
             elif line.command[1] == 11:
                 print("Start recover move after a G10")
-                Geometry.move_type = recover
+                Geometry.move_type = 'recover'
             elif line.command[1] == 20:
                 unit_divisor = 39.37007874 # Inches per meter
                 print("set inches")
