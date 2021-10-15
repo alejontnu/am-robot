@@ -44,8 +44,8 @@ def init_robot(robot_ip):
 		return current_pose, robot, Connected
 
 def linear_move(current_pose,target_pose,Geometry,robot):
-	print("linear move")
-	print(robot)
+	#print("linear move")
+	#print(robot)
 	if robot != 0:
 		Z_offset = 0.2
 		lin_move = LinearMotion(Affine(target_pose[0],target_pose[1],target_pose[2] + Z_offset,target_pose[3],target_pose[4],target_pose[5]),elbow=1.7)

@@ -24,7 +24,7 @@ return 0
 
 def recover_move():
 	#calculate recover move
-	print("Retraction Move")
+	print("Recover Move")
 return 0
 
 def movement_time(e_target,e_current,feedrate):

@@ -45,12 +45,12 @@ def main():
     parseAll = True
 
     # Initialize extruder status
-    Geometry = utility.Geometry_Status(0,0,0,0,0,0,0,0,0,'idle')
-    Machine = utility.Machine_Status(0,0,0)
+    Geometry = utility.GeometryState(0,0,0,0,0,0,0,0,0,'idle')
+    Machine = utility.MachineState(0,0,0)
 
     # Gcode file location
-    file_extrension = '.gcode'
-    if file_extrension not in args.Gfile:
+    file_extension = '.gcode'
+    if file_extension not in args.Gfile:
         filename = args.Gfile + '.gcode'
     folder = 'data'
 
@@ -65,7 +65,7 @@ def main():
     # Gcode load, read and parse
     with open(fullpath,'r') as file:
         gcodelines = GcodeParser(file.read()).lines
-    
+
     '''
     # Single line version, slower as the parsing is done for each line inside the loop
     with open(fullpath,'r') as f:
@@ -179,7 +179,7 @@ def main():
             elif line.command[1] == 91:
                 print("Set relative positioning")
             elif line.command[1] == 92:
-                print("Set positioning")
+                print("Set positioning, reset extruder position")
             else:
                 print(f"No action for given G-command number: {line.command[1]}")
             
@@ -207,8 +207,6 @@ def main():
             #do other stuff
         else:
             print("Neither G nor M command")
-
-        #print(str(Geometry))
 
         end_time = time.time()
         if end_time-start_time > 0.0003: # Have about 300 us to spare to achieve 1kHz
