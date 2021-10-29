@@ -3,7 +3,7 @@ from frankx import Affine, LinearMotion, Robot
 def init_robot(robot_ip):
 
 	# To skip connection when not at robot for testing other functions without connection timeout
-	try_to_connect = False
+	try_to_connect = True
 	Connected = False
 
 	if not try_to_connect:
@@ -12,14 +12,15 @@ def init_robot(robot_ip):
 
 	try:
 		print("Attempting to connect to robot...")
-		robot = Robot(robot_ip)
+		robot = Robot(robot_ip,repeat_on_error=False)
 	except Exception as e:
 		print("Could not connect to robot on IP: " + robot_ip)
 		raise e	
 	else:
 		print("Connected to robot in IP: " + robot_ip)
+		print(robot)
 		Connected = True
-		robot.set_default_bahavior()
+		robot.set_default_behavior()
 
 		# Recover from errors
 		robot.recover_from_errors()

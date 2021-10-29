@@ -117,7 +117,7 @@ def main():
                 target_pose[1] = Geometry.Y
                 target_pose[2] = Geometry.Z
 
-                dynamics.linear_move(current_pose,target_pose,Geometry,robot)
+                #dynamics.linear_move(current_pose,target_pose,Geometry,robot)
 
             elif line.command[1] == 2 or line.command[1] == 3:
                 if line.command[1] == 2:

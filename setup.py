@@ -27,6 +27,6 @@ setuptools.setup(
     package_dir={"": "src"},
     #package_data={'': ['benchmark.txt']},
     include_package_data=True,
-    install_requires=["argparse","gcodeparser","pandas","frankx","matplotlib"],
+    install_requires=["argparse","gcodeparser","pandas","matplotlib"],# frankx must be installed through cmake for dependencies??
     python_requires=">=3.6",
 )
