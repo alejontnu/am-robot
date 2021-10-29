@@ -5,6 +5,8 @@ class ExtruderTool:
         self.tooltype = _tooltype
         self.ip = _ip
 
+    def __str__(self):
+        return "ToolType = "+str(self.tooltype)
 Hz = 1000
 
 def feedrate(F):

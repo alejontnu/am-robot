@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 import am_robot
-import extruder
+import ExtruderTool
 
 class GCodeExecutor:
 	'''
@@ -21,7 +21,7 @@ class GCodeExecutor:
 	'''
 	def __init__(self,_filename,_robot,_extruder_tool):
 		self.filename = _filename
-		self.interval = [0,0]
+		self.interval = [0,0] # On the assumption that the first and second gcode command will allways be unique from eachother
 		self.list_of_intervals = []
 
 		# The [minimum,maximum] occurence through gcode
@@ -34,8 +34,8 @@ class GCodeExecutor:
 		self.F = -100
 		self.move_type = 'idle'
 
-		self.robot = am_robot
-		self.extruder_tool = extruder_tool
+		self.robot = _robot
+		self.extruder_tool = _extruder_tool
 
 	def load_gcode(self):
 		filename = self.filename
@@ -81,10 +81,18 @@ class GCodeExecutor:
 			self.__dict__[extreme][0] = param
 
 	def make_waypoints(self):
+		# Take an interval of movement commands
+		# Calculate trapesoidal movement/velocity to reduce jerk
+		# ?
 		return 0
 
+	# Blocking action
 	def run_code_segment(self):
-		command = self.command
+		print("run code segment")
+		# make waypoints for next section, trapesoidal movement?
+		# check bounds?
+		# set extrusion speed
+		# feed waypoints to robot and listen to robot pose
 		return 0
 
 	# Find the next instance of retraction (NB may be 0mm retraction)
@@ -136,11 +144,14 @@ class GCodeExecutor:
 	def visualize_gcode(self):
 		layer_height = 0
 		extrusion_volume = 0
+		current_feedrate = 0
 		x_coordinates = []
 		y_coordinates = []
 		z_coordinates = []
-		F_colours = []
+		colors = []
 		for element in self.list_of_intervals:
+			if self.get_params(element[0],'F') >= 0:
+				greyscale_feedrate = str(self.get_params(element[0],'F')/self.Fmax[1])
 			if self.get_params(element[0],'Z') >= 0:
 				layer_height = self.get_params(element[0],'Z')
 				self.set_extremes(layer_height,'Zmax')
@@ -154,9 +165,9 @@ class GCodeExecutor:
 						x_coordinates.append(x)
 						y_coordinates.append(y)
 						z_coordinates.append(layer_height)
+						colors.append(greyscale_feedrate)
 						self.set_extremes(x,'Xmax')
 						self.set_extremes(y,'Ymax')
-
 
 		fig = plt.figure()
 		ax = fig.add_subplot(111,projection='3d')
@@ -164,7 +175,7 @@ class GCodeExecutor:
 		ax.set_ylim(self.Ymax[0],self.Ymax[1])
 		largest_axis = max(self.Xmax[1]-self.Xmax[0],self.Ymax[1]-self.Ymax[0],self.Zmax[1]-self.Zmax[0])
 		ax.set_box_aspect(((self.Xmax[1]-self.Xmax[0])/largest_axis,(self.Ymax[1]-self.Ymax[0])/largest_axis,(self.Zmax[1]-self.Zmax[0])/largest_axis))
-		ax.plot(x_coordinates,y_coordinates,z_coordinates,label='Visualized gcode model',linewidth=0.05)
+		ax.plot(x_coordinates,y_coordinates,z_coordinates,label='Visualized gcode model',linewidth=0.1,color='b')
 		ax.legend()
 		plt.show()
 
@@ -173,8 +184,8 @@ class GCodeExecutor:
 
 if __name__ == '__main__':
 	robot = {}
-	extruder_tool = extruder.ExtruderTool('FDM','10.0.0.3')
-	filename = '3DBenchy'
+	extruder_tool = ExtruderTool.ExtruderTool('FDM','10.0.0.3')
+	filename = 'Circle'
 
 	executioner = GCodeExecutor(filename,robot,extruder_tool)
 	executioner.load_gcode()
@@ -185,6 +196,8 @@ if __name__ == '__main__':
 	while executioner.number_of_lines > executioner.interval[1] + 1 and count < 10000:
 		executioner.find_next_interval()
 		count = count + 1
+
+	print(len(executioner.list_of_intervals))
 
 	print("end of intervals")
 	#print(executioner.list_of_intervals)
