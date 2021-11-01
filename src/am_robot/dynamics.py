@@ -1,59 +1,58 @@
 from frankx import Affine, LinearMotion, Robot
 
-def init_robot(robot_ip):
+def init_robot(robot_ip,skip_connection):
 
-	# To skip connection when not at robot for testing other functions without connection timeout
-	try_to_connect = True
-	Connected = False
+    # To skip connection (True) when not at robot for testing other functions without connection timeout
+    is_connected = False
 
-	if not try_to_connect:
-		print("Skipped trying to connect to robot with IP: " + robot_ip)
-		return 0,0, Connected
+    if skip_connection:
+        print("Skipped trying to connect to robot with IP: " + robot_ip)
+        return {},0, is_connected
 
-	try:
-		print("Attempting to connect to robot...")
-		robot = Robot(robot_ip,repeat_on_error=False)
-	except Exception as e:
-		print("Could not connect to robot on IP: " + robot_ip)
-		raise e	
-	else:
-		print("Connected to robot in IP: " + robot_ip)
-		print(robot)
-		Connected = True
-		robot.set_default_behavior()
+    try:
+        print("Attempting to connect to robot...")
+        robot = Robot(robot_ip,repeat_on_error=False)
+    except Exception as e:
+        print("Could not connect to robot on IP: " + robot_ip)
+        raise e 
+    else:
+        print("Connected to robot in IP: " + robot_ip)
+        print(robot)
+        is_connected = True
+        robot.set_default_behavior()
 
-		# Recover from errors
-		robot.recover_from_errors()
+        # Recover from errors
+        robot.recover_from_errors()
 
-		# Set acceleration and velocity reduction
-		robot.set_dynamic_rel(0.05) # Default 0.1
+        # Set acceleration and velocity reduction
+        robot.set_dynamic_rel(0.05) # Default 0.1
 
-		# Joint motion - Wierd error here...
-		#robot.move(JointMotion([-1.811944, 1.179108, 1.757100, -2.14162, -1.143369, 1.633046, -0.432171]))
+        # Joint motion - Wierd error here...
+        #robot.move(JointMotion([-1.811944, 1.179108, 1.757100, -2.14162, -1.143369, 1.633046, -0.432171]))
 
-		# Define and move forwards
-		camera_frame = Affine(y=0.05)
-		home_pose = Affine(0.480, 0.0, 0.40) # NB not same as auto-home extruder
+        # Define and move forwards
+        camera_frame = Affine(y=0.05)
+        home_pose = Affine(0.480, 0.0, 0.40) # NB not same as auto-home extruder
 
-		robot.move(camera_frame, LinearMotion(home_pose, 1.75))
+        robot.move(camera_frame, LinearMotion(home_pose, 1.75))
 
-		# Get the current pose
-		current_pose = robot.current_pose()
-		print("current pose: ")
-		print(current_pose)
+        # Get the current pose
+        current_pose = robot.current_pose()
+        print("current pose: ")
+        print(current_pose)
 
-		return current_pose, robot, Connected
+        return robot, current_pose, is_connected
 
 def linear_move(current_pose,target_pose,Geometry,robot):
-	#print("linear move")
-	#print(robot)
-	if robot != 0:
-		Z_offset = 0.2
-		lin_move = LinearMotion(Affine(target_pose[0],target_pose[1],target_pose[2] + Z_offset,target_pose[3],target_pose[4],target_pose[5]),elbow=1.7)
-		robot.move(lin_move)
+    #print("linear move")
+    #print(robot)
+    if robot != 0:
+        Z_offset = 0.2
+        lin_move = LinearMotion(Affine(target_pose[0],target_pose[1],target_pose[2] + Z_offset,target_pose[3],target_pose[4],target_pose[5]),elbow=1.7)
+        robot.move(lin_move)
 
 def curved_move(current_pose,target_pose,Geometry):
-	print("curved move")
+    print("curved move")
 
 '''
 motion = LinearRelativeMotion(Affine(0.2, 0.0, 0.0))

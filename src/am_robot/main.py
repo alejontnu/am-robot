@@ -25,10 +25,12 @@ def main():
 
     parser.add_argument('--host', default='10.0.0.2', help='FCI IP of the robot')
     parser.add_argument('--Gfile', default='dontprint', help='Gcode file name')
+    parser.add_argument('--Visualize', default=False, help='Visualize the given Gcode as a 3D plot. Skips any hardware connection precess')
+    parser.add_argument('--skip_connection', default=False, help='If True, skips the connection to robot. When testing out-of-lab this saves time not having to wait for connection timeout')
     args = parser.parse_args()
 
     # Initialize robot
-    current_pose, robot, Connected = dynamics.init_robot(args.host)
+    robot, current_pose, is_connected = dynamics.init_robot(args.host,args.skip_connection)
 
     current_location = [0,0,0]
     current_rotation = [math.pi/2,0,0]
@@ -70,14 +72,10 @@ def main():
     # Single line version, slower as the parsing is done for each line inside the loop
     with open(fullpath,'r') as f:
         for index, linje in enumerate(f):
-            #print("line {}: {}".format(index, linje.strip()))
             if linje[0] == 'G' or linje[0] == 'M':
                 parsed_gline = GcodeParser(linje).lines
                 pandalinje = pd.DataFrame(parsed_gline,columns=["command","params","comment"])
                 Gline = utility.format_gcodeline(linje)
-                print(parsed_gline)
-                print(pandalinje)
-                print(Gline)
     '''
 
     # Alternative Pandas dict format. Larger size (x40)          

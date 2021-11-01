@@ -7,30 +7,32 @@ class ExtruderTool:
 
     def __str__(self):
         return "ToolType = "+str(self.tooltype)
+
+    def set_feedrate(F):
+        '''
+        Converts feedrate from mm/min to mm/s and passes it to extrusion controller
+
+        Parameters:
+        -----------
+        feedrate: int
+            rate of filament enxtrusion in mm/min
+
+        Returns:
+        -----------
+        feedrate: float
+            feedrate in mm/s
+        '''
+        feedrate = feedrate/60
+        return feedrate
+
+
 Hz = 1000
-
-def feedrate(F):
-    '''
-    Converts feedrate from mm/min to mm/s
-
-    Parameters:
-    -----------
-    feedrate: int
-    	rate of filament enxtrusion in mm/min
-
-    Returns:
-    -----------
-    feedrate: float
-        feedrate in mm/s
-    '''
-    feedrate = feedrate/60
-    return feedrate
 
 def retraction_move(feedrate,retraction_distance):
     retraction_time = retraction_distance / feedrate
     control_steps = floor(Hz * retraction_time)
     return 0
-
+    
 def recover_move():
     #calculate recover move
     print("Recover Move")
@@ -45,9 +47,9 @@ def movement_time(e_target,e_current,feedrate):
     e_target: float
         target position of filament
     e_current: float
-		current position of filament
+        current position of filament
     feedrate: int
-    	rate of filament enxtrusion in mm/min
+        rate of filament enxtrusion in mm/min
 
     Returns:
     -----------
