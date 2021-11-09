@@ -16,6 +16,8 @@ def main():
     -----------
     
     '''
+    
+    ''' Parsing input arguments '''
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description=('''
             Package for controlling a 3D printing on a 6 DoF robotic arm''')
@@ -23,9 +25,9 @@ def main():
             add_help=True)
 
     parser.add_argument('--host', default='10.0.0.2', help='FCI IP of the robot')
-    parser.add_argument('--Gfile', default='Circle', help='Gcode file name')
+    parser.add_argument('--gfile', default='Circle', help='Gcode file name')
     parser.add_argument('--visualize', default=False, help='Visualize the given Gcode as a 3D plot. Skips any hardware connection precess')
-    parser.add_argument('--skip_connection', default=False, help='If True, skips the connection to robot. When testing out-of-lab this saves time not having to wait for connection timeout')
+    parser.add_argument('--skip_connection', default=False, help='If True, skips the connection to robot. For testing out-of-lab. Alse defaults too True if visualize is True')
     args = parser.parse_args()
 
     if args.visualize:
@@ -33,7 +35,7 @@ def main():
     
     extruder_tool = ExtruderTool.ExtruderTool('FDM','10.0.0.3')
     robot, current_pose, is_connected = dynamics.init_robot(args.host,args.skip_connection)
-    executor = GCodeExecutor.GCodeExecutor(args.Gfile,robot,extruder_tool)
+    executor = GCodeExecutor.GCodeExecutor(args.gfile,robot,extruder_tool)
     executor.load_gcode()
 
     if args.visualize:

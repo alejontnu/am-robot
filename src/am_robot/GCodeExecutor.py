@@ -25,12 +25,6 @@ class GCodeExecutor:
         self.interval = [0,0] # On the assumption that the first and second gcode command will allways be unique from eachother
         self.list_of_intervals = []
 
-        # The [minimum,maximum] occurence through gcode
-        self.Xmax = [0,0]
-        self.Ymax = [0,0]
-        self.Zmax = [0,0]
-        self.Fmax = [0,0]
-
         self.Z = 0
         self.E = -100
         self.F = -100
@@ -78,10 +72,18 @@ class GCodeExecutor:
         self.__dict__[param] = self.get_params(line_number,param)
 
     def set_extremes(self,param,extreme):
-        if param > self.__dict__[extreme][1]:
-            self.__dict__[extreme][1] = param
-        if param < self.__dict__[extreme][0]:
-            self.__dict__[extreme][0] = param
+        try:
+            if param > self.__dict__[extreme][1]:
+                self.__dict__[extreme][1] = param
+        except:
+            self.__dict__[extreme] = [param,param]
+        try:
+            if param < self.__dict__[extreme][0]:
+                self.__dict__[extreme][0] = param
+        except:
+            self.__dict__[extreme] = [param,param]
+
+        
 
     # Find the next instance of retraction (NB may be 0mm retraction)
     def find_next_interval(self):
@@ -208,6 +210,7 @@ class GCodeExecutor:
 
         print(len(x_coordinates))
         print(self.number_of_lines)
+        print(self.Zmax)
 
         fig = plt.figure()
         ax = fig.add_subplot(111,projection='3d')
