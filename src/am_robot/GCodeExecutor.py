@@ -5,6 +5,10 @@ from frankx import Robot
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+import plotly.express as px
+import pandas as pd
+import plotly.graph_objects as go
+import math
 
 import am_robot
 import ExtruderTool
@@ -214,15 +218,72 @@ class GCodeExecutor:
 
         fig = plt.figure()
         ax = fig.add_subplot(111,projection='3d')
+
         ax.set_xlim(self.Xmax[0],self.Xmax[1])
         ax.set_ylim(self.Ymax[0],self.Ymax[1])
         largest_axis = max(self.Xmax[1]-self.Xmax[0],self.Ymax[1]-self.Ymax[0],self.Zmax[1]-self.Zmax[0])
         ax.set_box_aspect(((self.Xmax[1]-self.Xmax[0])/largest_axis,(self.Ymax[1]-self.Ymax[0])/largest_axis,(self.Zmax[1]-self.Zmax[0])/largest_axis))
+
         ax.plot(x_coordinates,y_coordinates,z_coordinates,label='Visualized gcode model',linewidth=0.1,color='b')
         ax.legend()
         plt.show()
 
         return 0
+
+    def visualize_gcode_plotly(self):
+        layer_height = 0
+        extrusion_volume = 0
+        current_feedrate = 0
+        x_coordinates = []
+        y_coordinates = []
+        z_coordinates = []
+        colors = []
+
+        for element in self.list_of_intervals:
+            if self.get_params(element[0],'F') >= 0:
+                greyscale_feedrate = self.get_params(element[0],'F')/self.Fmax[1]
+                colr = math.floor(self.get_params(element[0],'F')*255/self.Fmax[1])
+            if self.get_params(element[0],'Z') >= 0:
+                layer_height = self.get_params(element[0],'Z')
+                self.set_extremes(layer_height,'Zmax')
+            if self.get_params(element[0],'E') >= 0:
+                extrusion_volume = self.get_params(element[0],'E')
+            if self.get_command(element[0]) == 'G1' and element[0] != element[1]:
+                for point in range(element[0],element[1]+1):
+                    if self.get_params(point,'E') > extrusion_volume:
+                        x = self.get_params(point,'X')
+                        y = self.get_params(point,'Y')
+                        x_coordinates.append(x)
+                        y_coordinates.append(y)
+                        z_coordinates.append(layer_height)
+                        colors.append(greyscale_feedrate)
+                        self.set_extremes(x,'Xmax')
+                        self.set_extremes(y,'Ymax')
+                x_coordinates.append(None)
+                y_coordinates.append(None)
+                z_coordinates.append(None)
+                colors.append(0)
+
+        df = pd.DataFrame(dict(
+            x = x_coordinates,
+            y = y_coordinates,
+            z = z_coordinates,
+            colors = colors
+        ))
+
+        #fig = px.line_3d(df,x='x',y='y',z='z',color='colors')
+        fig = go.Figure(data=go.Scatter3d(
+            x=x_coordinates,y=y_coordinates,z=z_coordinates,
+            mode="lines",
+            line=dict(
+                width=6,
+                color=colors,
+                colorscale=[[0,'rgb(0,0,255)'],[1,'rgb(255,0,0)']]
+                ),
+            connectgaps=False
+            ))
+
+        fig.show()
 
 
 if __name__ == '__main__':

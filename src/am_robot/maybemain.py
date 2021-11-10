@@ -16,7 +16,7 @@ def main():
     -----------
     
     '''
-    
+
     ''' Parsing input arguments '''
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description=('''
@@ -40,7 +40,7 @@ def main():
 
     if args.visualize:
         executor.display()
-        executor.visualize_gcode()
+        executor.visualize_gcode_plotly()
 
     #executor.run_code_segment()
 
