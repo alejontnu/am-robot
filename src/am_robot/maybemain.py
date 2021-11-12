@@ -56,7 +56,7 @@ def main():
     if args.visualize:
         time_elapsed_task = time.time()
         executor.display()
-        executor.visualize_gcode_plotly()
+        executor.visualize_gcode()
         time_elapsed_task = time.time() - time_elapsed_task
     else:
         # manually position end effector/extrusion nozzle at 'home' point
@@ -67,9 +67,9 @@ def main():
         executor.construct_bed_mesh()
 
         time_elapsed_task = time.time()
-        for segment in executor.list_of_intervals:
+        for interval in executor.list_of_intervals:
             # Blocking function:
-            executor.run_code_segment()
+            executor.run_code_segment(interval)
         time_elapsed_task = time.time() - time_elapsed_task
 
     time_elapsed_total = time.time() - time_elapsed_total
