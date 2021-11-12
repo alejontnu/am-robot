@@ -1,4 +1,6 @@
 import sys
+import argparse
+import time
 
 if sys.platform == 'linux':
     from frankx import Robot
@@ -10,9 +12,6 @@ elif sys.platform == 'win32':
     finally:
         print('Running on OS: ' + sys.platform)
 
-
-print(sys.platform)
-import argparse
 
 from am_robot import GCodeExecutor
 from am_robot import ExtruderTool
@@ -43,6 +42,9 @@ def main():
     parser.add_argument('--skip_connection', default=False, help='If True, skips the connection to robot. For testing out-of-lab. Alse defaults too True if visualize is True')
     args = parser.parse_args()
 
+    time_elapsed_task = time.time()
+    time_elapsed_total = time.time()
+
     if args.visualize:
         args.skip_connection = True
     
@@ -52,10 +54,28 @@ def main():
     executor.load_gcode()
 
     if args.visualize:
+        time_elapsed_task = time.time()
         executor.display()
         executor.visualize_gcode_plotly()
+        time_elapsed_task = time.time() - time_elapsed_task
+    else:
+        # manually position end effector/extrusion nozzle at 'home' point
+        executor.home_robot()
+        # Uses force feedback to determine where n points of the print bed are located
+        executor.probe_bed()
+        # Make a bed mesh for knowing the surface flatness and location of build area
+        executor.construct_bed_mesh()
 
-    #executor.run_code_segment()
+        time_elapsed_task = time.time()
+        for segment in executor.list_of_intervals:
+            # Blocking function:
+            executor.run_code_segment()
+        time_elapsed_task = time.time() - time_elapsed_task
+
+    time_elapsed_total = time.time() - time_elapsed_total
+
+    print(f"Task done in {time_elapsed_task:.5f}s")
+    print(f"Total time elapsed: {time_elapsed_total:.5f}s")
 
 if __name__ == '__main__':
     main()
