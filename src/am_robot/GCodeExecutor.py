@@ -278,7 +278,7 @@ class GCodeExecutor:
             line=dict(
                 width=6,
                 color=colors,
-                colorscale=[[0,'rgb(0,0,255)'],[1,'rgb(255,0,0)']]
+                colorscale=[[0,'rgb(0,0,0)'],[1,'rgb(0,255,255)']]
                 ),
             connectgaps=False
             ))

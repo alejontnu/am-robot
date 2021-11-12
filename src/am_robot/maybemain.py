@@ -1,4 +1,17 @@
-from frankx import Robot
+import sys
+
+if sys.platform == 'linux':
+    from frankx import Robot
+elif sys.platform == 'win32':
+    try:
+        from frankx import Robot    
+    except Exception as e:
+        print(e)
+    finally:
+        print('Running on OS: ' + sys.platform)
+
+
+print(sys.platform)
 import argparse
 
 from am_robot import GCodeExecutor
