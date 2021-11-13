@@ -1,9 +1,12 @@
 
 
 class ExtruderTool:
-    def __init__(self,_tooltype,_ip):
+    def __init__(self,_tooltype,_ip,_filament_width,_nozzle_diameter,_tool_transformation):
         self.tooltype = _tooltype
         self.ip = _ip
+        self.filament_width = _filament_width
+        self.nozzle_diameter = _nozzle_diameter
+        self.T_tool = _tool_transformation
 
     def __str__(self):
         return "ToolType = "+str(self.tooltype)

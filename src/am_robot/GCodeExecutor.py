@@ -158,6 +158,32 @@ class GCodeExecutor:
         self.number_of_lines = len(self.gcodelines)
         self.find_intervals()
 
+    def home_robot(self):
+        self.robot.robot_home_move()
+
+    def home_gcode(self,homing_type):
+        if homing_type == 'manual':
+            # robot to its home point
+            # make it movable
+            # manually position end effector
+            # wait for user input/OK
+            # save end-effector point as home point of print
+
+            self.home_robot()
+
+            # Get the current pose
+            current_pose = robot.current_pose()
+            print("current pose: ")
+            print(current_pose)
+
+    def probe_bed(self):
+        self.bed_points = 0 # list of list? np array of points?
+
+    def generate_bed_mesh(self):
+        self.bed_mesh = 0 # matrice with values?
+
+    def check_build_area(self):
+        self.is_area_clear = True # swipe arm with low resistance force trigger?
 
     def make_waypoints(self,interval):
         # Take an interval of movement commands
