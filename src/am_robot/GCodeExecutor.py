@@ -103,8 +103,8 @@ class GCodeExecutor:
 
         if self.interval[1]+1 >= self.number_of_lines:
             print("End of code")
-            return 'End of code' 
-        
+            return 'End of code'
+
         ''' maybe change to while(if(if(break)),if(if(brake)),if(if(brake)),line += 1) '''
 
         line_number = self.interval[1]+1
@@ -113,16 +113,13 @@ class GCodeExecutor:
             if self.read_param(line_number,'Z') != False and self.read_param(line_number, 'Z') != self.get_param('Z'):
                 interval = [self.interval[1]+1,line_number-1]
                 self.set_param(line_number,'Z')
-                #print("interval end due to layer height change")
                 break
             elif self.read_param(line_number,'E') != False and self.read_param(line_number,'E') < self.get_param('E'):
                 interval = [self.interval[1]+1,line_number-1]
                 self.set_param(line_number,'E')
-                #print("interval end due to E param change")
                 break
             elif self.read_command(line_number) != self.read_command(self.interval[1]+1):
                 interval = [self.interval[1]+1,line_number-1]
-                #print("interval end due to command change")
                 break
             elif self.read_param(line_number,'F') != False and self.read_param(line_number,'F') != self.get_param('F'): 
             # Check if this is wanted, or append this last x-y line to interval
@@ -130,7 +127,6 @@ class GCodeExecutor:
                 self.set_extremes(self.F,'Fmax')
                 if self.read_param(line_number,'X') == False and self.read_param(line_number,'Y') == False:
                     interval = [self.interval[1]+1,line_number-1]
-                    #print("interval end due to F param change")
                     break
             else:
                 # Typically when the next line is just another X-Y coordinate
@@ -211,8 +207,8 @@ class GCodeExecutor:
 
 
     def visualize_gcode(self):
-        layer_height = 0
-        extrusion_volume = 0
+        z = 0
+        extrusion_distance = 0
         current_feedrate = 0
         x_coordinates = []
         y_coordinates = []
@@ -220,29 +216,54 @@ class GCodeExecutor:
         colors = []
 
         for element in self.list_of_intervals:
+            if self.read_param(element[0],'E') != False:
+                extrusion_distance = self.read_param(element[0],'E')
+            if self.read_param(element[0],'Z') != False:
+                z = self.read_param(element[0],'Z')
+                self.set_extremes(z,'Zmax')
+                self.Z = z
             if self.read_param(element[0],'F') != False:
                 greyscale_feedrate = self.read_param(element[0],'F')/self.Fmax[1]
-            if self.read_param(element[0],'Z') != False:
-                layer_height = self.read_param(element[0],'Z')
-                self.set_extremes(layer_height,'Zmax')
-            if self.read_param(element[0],'E') != False:
-                extrusion_volume = self.read_param(element[0],'E')
-            if self.read_command(element[0]) == 'G1' and element[0] != element[1]:
+            if self.read_command(element[0]) == 'G1':
+                try: # front-pad the start position to the coming series of moves
+                    x_coordinates.append(self.X)
+                    y_coordinates.append(self.Y)
+                    z_coordinates.append(self.Z)
+                    colors.append(greyscale_feedrate)
+                except: # For initial G1 commands before any x-y coodrinates have been set
+                    pass
                 for point in range(element[0],element[1]+1):
-                    if self.read_param(point,'E') > extrusion_volume and self.read_param(point,'E') != False:
+                    if self.read_param(point,'X') != False and self.read_param(point,'Y') != False:
                         x = self.read_param(point,'X')
                         y = self.read_param(point,'Y')
-                        x_coordinates.append(x)
-                        y_coordinates.append(y)
-                        z_coordinates.append(layer_height)
-                        colors.append(greyscale_feedrate)
+
                         self.set_extremes(x,'Xmax')
                         self.set_extremes(y,'Ymax')
+                        self.X = x
+                        self.Y = y
+
+                        if self.read_param(point,'E') > extrusion_distance and self.read_param(point,'E') != False:
+                            x_coordinates.append(x)
+                            y_coordinates.append(y)
+                            z_coordinates.append(z)
+                            colors.append(greyscale_feedrate)
+
+                            extrusion_distance = self.read_param(point,'E')
+
                 x_coordinates.append(None)
                 y_coordinates.append(None)
                 z_coordinates.append(None)
                 colors.append(0)
 
+            elif self.read_command(element[0]) == 'G0':
+                for point in range(element[0],element[1]+1):
+                    if self.read_param(point,'X') != False and self.read_param(point,'Y') != False:
+                        x = self.read_param(point,'X')
+                        y = self.read_param(point,'Y')
+
+                        self.X = x
+                        self.Y = y
+            
         df = pd.DataFrame(dict(
             x = x_coordinates,
             y = y_coordinates,
