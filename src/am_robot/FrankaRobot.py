@@ -1,4 +1,5 @@
-from frankx import Affine, LinearMotion, Robot
+from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState
+import math
 
 class FrankaRobot:
     def __init__(self,_host,_skip_connection):
@@ -17,7 +18,7 @@ class FrankaRobot:
                 print("Attempting to connect to robot...")
                 self.robot = Robot(robot_ip,repeat_on_error=False)
             except Exception as e:
-                print("Could not connect to robot on IP: " + self.ip)
+                print("Could not connect to robot on IP: " + self.ip + "\n")
                 raise e 
             else:
                 print("Connected to robot in IP: " + self.ip)
@@ -25,6 +26,24 @@ class FrankaRobot:
 
                 self.is_connected = True
 
+        self.radius = 0.855
+        self.height_up = 1.190
+        self.height_down = 0.360
+        self.sweep_angle = 2 * math.pi
+        self.base_area = 0.1 # front area radius
+
+    def set_robot_mode(self,mode):
+        self.RobotMode(mode)
+
+    def read_Robot_state(self,state):
+        return RobotState.__dict__[state]
+
+    def lin_move_to_point(self,X,Y,Z):
+        move = LinearMotion(Affine(X,Y,Z))
+        self.robot.move(move)
+
+    def follow_waypoints(self,waypoints):
+        self.robot.move(waypoints)
 
     def robot_home_move(self):
         self.robot.set_default_behavior()
@@ -42,9 +61,11 @@ class FrankaRobot:
         # Define and move forwards
         self.camera_frame = Affine(y=0.05)
         self.robot_home_pose = Affine(0.480, 0.0, 0.40) # NB not same as auto-home extruder
+        self.robot_home_pose_vec = [0.480,0.0,0.40]
 
         self.robot.move(self.camera_frame, LinearMotion(self.robot_home_pose, 1.75))
 
-    def get_current_pose(self):
-        self.current_pose = robot.current_pose()
-        return self.current_pose
+        self.home_pose = self.read_current_pose()
+
+    def read_current_pose(self):
+        return self.robot.current_pose()

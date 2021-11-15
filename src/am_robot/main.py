@@ -30,31 +30,34 @@ def main():
     '''
 
     ''' Parsing input arguments '''
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description=('''
-            Package for controlling a 3D printing on a 6 DoF robotic arm''')
-            ,epilog='This is still under development',
-            add_help=True)
+    parser = argparse.ArgumentParser(formatter_class=argparse.MetavarTypeHelpFormatter,
+        description=('''Package for controlling a 3D printing on a 6 DoF robotic arm''')
+        ,epilog='This is still under development',
+        add_help=True)
 
-    parser.add_argument('--host', default='10.0.0.2', help='FCI IP of the robot')
-    parser.add_argument('--gfile', default='Circle', help='Gcode file name')
-    parser.add_argument('--t_tool', default=[0,0,-0.1], help='Translation due to Tool as [x,y,z]')
-    parser.add_argument('--d_nozzle', default=0.8, help='Hot-End Nozzle diameter')
-    parser.add_argument('--f_width', default=2.85, help='Width of filament used')
-    parser.add_argument('--visualize', default=False, help='Visualize the given Gcode as a 3D plot. Skips any hardware connection precess')
-    parser.add_argument('--skip_connection', default=False, help='If True, skips the connection to robot. For testing out-of-lab. Alse defaults too True if visualize is True')
+    parser.add_argument('--host', default='10.0.0.2', type=str, help='FCI IP of the robot')
+    parser.add_argument('--tool', default='10.0.0.3', type=str, help='Connection of the tool used')
+    parser.add_argument('--home_mode', default='Guiding', type=str, help='Mode type for homing to (0,0) of Gcode point. Guiding to manually position end-effector nozzle')
+    parser.add_argument('--gfile', default='Circle.gcode', type=str, help='Gcode file name')
+    parser.add_argument('--t_tool', default=[0,0,-0.1], type=list, help='Translation due to Tool as [x,y,z]')
+    parser.add_argument('--d_nozzle', default=0.8, type=float, help='Hot-End Nozzle diameter')
+    parser.add_argument('--f_width', default=2.85, type=float, help='Width of filament used')
+    parser.add_argument('--visualize', default=False, type=bool, help='Visualize the given Gcode as a 3D plot. Skips any hardware connection precess')
+    parser.add_argument('--skip_connection', default=False, type=bool, help='If True, skips the connection to robot. For testing out-of-lab. Alse defaults too True if visualize is True')
     args = parser.parse_args()
 
     time_elapsed_task = time.time()
     time_elapsed_total = time.time()
 
-    if args.visualize:
-        args.skip_connection = True
+    #if args.visualize:
+    #    args.skip_connection = True
     
     extruder_tool = ExtruderTool.ExtruderTool('FDM','10.0.0.3',args.f_width,args.d_nozzle,args.t_tool)
     robot = FrankaRobot.FrankaRobot(args.host,args.skip_connection)
     executor = GCodeExecutor.GCodeExecutor(args.gfile,robot,extruder_tool)
     executor.load_gcode()
+
+    print(executor.robot.robot)
 
     if args.visualize:
         time_elapsed_task = time.time()
@@ -64,7 +67,7 @@ def main():
     
     if executor.robot.is_connected:
         # Manually position end effector/extrusion nozzle at 'home' point
-        executor.home_gcode('manual')
+        executor.home_gcode(args.home_mode)
         # Uses force feedback to determine where n points of the print bed are located
         #executor.probe_bed()
         # Make a bed mesh for knowing the surface flatness and location of build area

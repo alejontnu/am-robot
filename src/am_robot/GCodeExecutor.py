@@ -1,14 +1,13 @@
 import os
 import time
-from gcodeparser import GcodeParser
-from frankx import Robot
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+import math
+
 import numpy as np
-import plotly.express as px
 import pandas as pd
 import plotly.graph_objects as go
-import math
+
+from gcodeparser import GcodeParser
+from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, Reaction, Robot, RobotMode, RobotState, StopMotion
 
 import am_robot
 import ExtruderTool
@@ -110,6 +109,16 @@ class GCodeExecutor:
         line_number = self.interval[1]+1
         interval = [line_number,line_number]
         while (line_number < self.number_of_lines):
+
+            # Find dimensions of model
+            if self.read_param(line_number,'X') != False:
+                self.set_extremes(self.read_param(line_number,'X'),'Xmax')
+            if self.read_param(line_number,'Y') != False:
+                self.set_extremes(self.read_param(line_number,'Y'),'Ymax')
+            if self.read_param(line_number,'Z') != False:
+                self.set_extremes(self.read_param(line_number,'Z'),'Zmax')
+
+            # Find desired interval change condition
             if self.read_param(line_number,'Z') != False and self.read_param(line_number, 'Z') != self.get_param('Z'):
                 interval = [self.interval[1]+1,line_number-1]
                 self.set_param(line_number,'Z')
@@ -158,78 +167,163 @@ class GCodeExecutor:
         self.number_of_lines = len(self.gcodelines)
         self.find_intervals()
 
-    def home_robot(self):
-        self.robot.robot_home_move()
 
     def home_gcode(self,homing_type):
-        if homing_type == 'manual':
-            # robot to its home point
-            # make it movable
-            # manually position end effector
-            # wait for user input/OK
-            # save end-effector point as home point of print
+        if homing_type == 'Guiding':
+            self.robot.robot_home_move()
 
-            self.home_robot()
+            robot_home_pose = self.robot.get_current_pose()
 
-            # Get the current pose
-            current_pose = robot.current_pose()
-            print("current pose: ")
-            print(current_pose)
+            self.robot.set_robot_mode(homing_type)
+
+            input("Position end-effector nozzle < 1cm from desired (0,0) location.\n When satisfied with position, press Enter to continue...")
+            self.gcode_home_pose = self.robot.get_current_pose()
+
+            # Can potentially add collision detection here to further improve home point. 
+            # But new (0,0) point can be chosen from mid point of bed probing afterwards
+
+            self.robot.set_robot_mode('Idle')
+
+        else:
+            print("Failed to home gcode zero... Check RobotMode input")
 
     def probe_bed(self):
-        self.bed_points = 0 # list of list? np array of points?
+        probe_locations_xy = [[[0.1,0.1],[0,0.1],[-0.1,0.1]],[[0.1,0],[0,0],[-0.1,0]],[[0.1,-0.1],[0,-0.1],[-0.1,-0.1]]] # relative to gome_gcode
 
-    def generate_bed_mesh(self):
+        # Apply reaction motion if the force in negative z-direction is greater than 10N
+        reaction_motion = LinearRelativeMotion(Affine(0.0, 0.0, 0.01))  # Move up for 1cm
+        d2 = MotionData().with_reaction(Reaction(Measure.ForceZ() < -5.0), reaction_motion)
+
+        self.robot.robot.set_dynamic_rel(0.05)
+
+        for axis1 in range(3):
+            for axis2 in range(3):
+                # Move to probe location
+                m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0],probe_locations_xy[axis1][axis2][1],0.40))
+                self.robot.robot.move(m1)
+
+                # Move slowly towards print bed
+                m2 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0],probe_locations_xy[axis1][axis2][1],0.30))
+                self.robot.robot.move(m2, d2)
+
+                # Check if the reaction was triggered
+                if d2.has_fired:
+                    self.robot.robot.recover_from_errors()
+                    current_pose = self.robot.read_current_pose()
+                    print('Force exceeded 10N!')
+                    print(f"Hit something for probe location x: {axis1}, y: {axis2}")
+                    print(current_pose)
+
+                    bed_grid[axis1][axis2] = current_pose
+
+                elif not d2.has_fired:
+                    print(f"Did not hit anything for probe location x: {axis1}, y: {axis2}")
+
+        self.bed_points = bed_grid
+
+    def approximate_bed_offset_from_mesh(self):
         self.bed_mesh = 0 # matrice with values?
 
-    def check_build_area(self):
-        self.is_area_clear = True # swipe arm with low resistance force trigger?
+    def does_model_fit_bed(self):
+        # Assumes a Cubic build volume.. Should use actual spherical volume
+        if ((self.Xmax[1]+self.robot.robot.robot_home_pose_vec[0] >= self.robot.robot.radius) 
+            or (self.Xmax[0]-self.robot.robot.robot_home_pose_vec[0] <= self.robot.robot.base_area) 
+            or (self.Ymax[1]+self.robot.robot.robot_home_pose_vec[1] >= self.robot.robot.radius) 
+            or (self.Ymax[0]-self.robot.robot.robot_home_pose_vec[1] <= self.robot.robot.base_area) 
+            or (self.Zmax[1]+self.robot.robot.robot_home_pose_vec[2] >= self.robot.robot.height_up) 
+            or (self.Zmax[0]-self.robot.robot.robot_home_pose_vec[2] <= self.robot.robot.height_down)):
+            return False
+        else:
+            return True
+
+    def is_build_feasable(self):
+        if not self.does_model_fit_bed():
+            print("Model does not fit on build plate")
+            return False
+
+        # move in a square and detect collision
+        edge_points = [[self.Xmax[1],self.Ymax[1],self.Zmax[0]+0.1],[self.Xmax[0],self.Ymax[1],self.Zmax[0]+0.1],[self.Xmax[0],self.Ymax[0],self.Zmax[0]+0.1],[self.Xmax[1],self.Ymax[0],self.Zmax[0]+0.1],[self.Xmax[1],self.Ymax[1],self.Zmax[0]+0.1]]
+        reaction_motion = LinearMotion(Affine(self.robot.robot.robot_home_pose_vec[0],self.robot.robot.robot_home_pose_vec[1],self.robot.robot.robot_home_pose_vec[2]))
+
+        for point in edge_points:
+
+            # Stop motion if the overall force is greater than 30N
+            data = MotionData().with_reaction(Reaction(Measure.ForceXYZNorm() > 15.0), reaction_motion)
+            motion = LinearMotion(Affine(point[0],point[1],point[2]))
+
+            self.robot.robot.move(motion,data)
+
+            if data.has_fired:
+                self.robot.robot.recover_from_errors()
+                print("Collision when checking build area.")
+                return False
+
+            reaction_motion = LinearMotion(Affine(point[0],point[1],point[2]))
+
+        self.is_area_clear = True
+
+        return True
 
     def make_waypoints(self,interval):
         # Take an interval of movement commands
         # Calculate trapesoidal movement/velocity to reduce jerk and uphold correct extrusion speed
         # ?
         num_waypoints = interval[1]+1-interval[0]
-        xyz_coordinates = np.empty([num_waypoints,3])
+        waypoint_move = []
 
         for point in range(interval[0],interval[1]+1):
-            xyz_coordinates[[point][0]] = self.read_param(point,'X')
-            xyz_coordinates[[point][1]] = self.read_param(point,'Y')
-            xyz_coordinates[[point][2]] = self.Z
-        return 0
+
+            waypoint_move.append(self.robot.WaypointMotion([Waypoint(Affine(self.read_param(point,'X'),self.read_param(point,'Y'),self.Z))]))
+
+        return waypoint_move
 
 
     # Blocking action
     def run_code_segment(self,interval):
         command = self.read_command(interval[0])
+
         if command[0] == 'M':
             print("send to extruder_tool")
-        if self.read_param(interval[0]) >= 0:
-            self.Z = self.read_param(interval[0])
+            return 0
+
+        # Reset extruder distance
+        if self.read_param(interval[0],'E') != False and command == 'G92':
+            self.E = self.read_param(element[0],'E')
+
+        # Find current / new z-height
+        if self.read_param(interval[0],'Z') != False:
+            self.Z = self.read_param(interval[0],'Z')
+
+        # Find desired feedrate / working speed
+        if self.read_param(interval[0],'F') != False:
+            self.F = self.read_param(element[0],'F')
+
         if command == 'G0':
             # Stop extrusion and move to target
-            fem = 4
+            if self.read_param(interval[0],'X') != False and self.read_param(interval[0],'Y') != False:
+                self.robot.lin_move_to_point(self.read_param(interval[0],'X'),self.read_param(interval[0],'Y'),self.Z)
+
         elif command == 'G1':
             # Find waypoints, trapesoidal movement?
-            waypoints = self.make_waypoints(self.list_of_intervals[interval_number])
-        # check bounds?
-        # set extrusion speed
-        # feed waypoints to robot and listen to robot pose
+            final_pose = [self.read_param(interval[1],'X'),self.read_param(interval[1],'Y'),self.Z]
 
-        return 0
+            if len(interval[1]+1-interval[0]) > 2: # arbitrary minimum waypoints, Remember to change! (this is going to go well....)
+                waypoints = self.make_waypoints(interval)
+                # check bounds?
+                # set extrusion speed
+                # feed waypoints to robot and listen to robot pose
+                self.robot.follow_waypoints(waypoints)
 
+                while self.robot.read_current_pose() != final_pose:
+                    time.sleep(1)
+                    print("final pose: ")
+                    print(final_pose)
+                    print("Current pose: ")
+                    print(self.robot.read_current_pose())
 
-    def __str__(self):
-        return "gcodeexecutor"
+            if self.read_param(interval[0],'E') != False:
+                self.E = self.read_param(element[0],'E')
 
-
-    def display(self):
-        if '.gcode' in self.filename:
-            print(f"\nName of file being processed: {self.filename}")
-        else:
-            print(f"\nName of file being processed: {self.filename + '.gcode'}")
-        print(f"Number of command lines processed: {self.number_of_lines}")
-        print("Total filament used: \n")
 
 
     def visualize_gcode(self):
@@ -244,12 +338,14 @@ class GCodeExecutor:
         for element in self.list_of_intervals:
             if self.read_param(element[0],'E') != False:
                 extrusion_distance = self.read_param(element[0],'E')
+
             if self.read_param(element[0],'Z') != False:
                 z = self.read_param(element[0],'Z')
-                self.set_extremes(z,'Zmax')
                 self.Z = z
+
             if self.read_param(element[0],'F') != False:
                 greyscale_feedrate = self.read_param(element[0],'F')/self.Fmax[1]
+
             if self.read_command(element[0]) == 'G1':
                 try: # front-pad the start position to the coming series of moves
                     x_coordinates.append(self.X)
@@ -258,13 +354,12 @@ class GCodeExecutor:
                     colors.append(greyscale_feedrate)
                 except: # For initial G1 commands before any x-y coodrinates have been set
                     pass
+
                 for point in range(element[0],element[1]+1):
                     if self.read_param(point,'X') != False and self.read_param(point,'Y') != False:
                         x = self.read_param(point,'X')
                         y = self.read_param(point,'Y')
 
-                        self.set_extremes(x,'Xmax')
-                        self.set_extremes(y,'Ymax')
                         self.X = x
                         self.Y = y
 
@@ -297,6 +392,9 @@ class GCodeExecutor:
             colors = colors
         ))
 
+        largest_axis = max([self.Xmax[1]-self.Xmax[0],self.Ymax[1]-self.Ymax[0],self.Zmax[1]-self.Zmax[0]])
+        axis_scale = [(self.Xmax[1]-self.Xmax[0])/largest_axis,(self.Ymax[1]-self.Ymax[0])/largest_axis,(self.Zmax[1]-self.Zmax[0])/largest_axis]
+
         fig = go.Figure(data=go.Scatter3d(
             x=x_coordinates,y=y_coordinates,z=z_coordinates,
             mode="lines",
@@ -308,16 +406,27 @@ class GCodeExecutor:
             connectgaps=False
             ))
 
+        fig.update_layout(
+            #width=800,
+            #height=700,
+            autosize=True,
+            scene=dict(
+                aspectratio = dict( x=axis_scale[0], y=axis_scale[1], z=axis_scale[2] ),
+                aspectmode = 'manual'
+            ),
+        )
+
         fig.show()
 
 
-if __name__ == '__main__':
-    robot = {}
-    extruder_tool = ExtruderTool.ExtruderTool('FDM','10.0.0.3')
-    filename = 'Circle'
+    def __str__(self):
+        return "gcodeexecutor"
 
-    executioner = GCodeExecutor(filename,robot,extruder_tool)
-    executioner.load_gcode()
 
-    executioner.display()
-    executioner.visualize_gcode()
+    def display(self):
+        if '.gcode' in self.filename:
+            print(f"\nName of file being processed: {self.filename}")
+        else:
+            print(f"\nName of file being processed: {self.filename + '.gcode'}")
+        print(f"Number of command lines processed: {self.number_of_lines}")
+        print("Total filament used: \n")
