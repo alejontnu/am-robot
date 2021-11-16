@@ -57,6 +57,7 @@ def main():
     executor = GCodeExecutor.GCodeExecutor(args.gfile,robot,extruder_tool)
     executor.load_gcode()
 
+    print("robot object")
     print(executor.robot.robot)
 
     if args.visualize:

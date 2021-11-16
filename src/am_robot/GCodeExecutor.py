@@ -167,6 +167,16 @@ class GCodeExecutor:
         self.number_of_lines = len(self.gcodelines)
         self.find_intervals()
 
+        # gcode is in mm, change to m for robot
+        for line in self.gcodelines:
+            for element in line.params:
+                if element == 'X':
+                    line.update_param('X',line.get_param('X')/1000)
+                if element == 'Y':
+                    line.update_param('Y',line.get_param('Y')/1000)
+                if element == 'Z':
+                    line.update_param('Z',line.get_param('Z')/1000)
+
 
     def home_gcode(self,homing_type):
         if homing_type == 'Guiding':
@@ -188,22 +198,24 @@ class GCodeExecutor:
             print("Failed to home gcode zero... Check RobotMode input")
 
     def probe_bed(self):
-        probe_locations_xy = [[[0.1,0.1],[0,0.1],[-0.1,0.1]],[[0.1,0],[0,0],[-0.1,0]],[[0.1,-0.1],[0,-0.1],[-0.1,-0.1]]] # relative to gome_gcode
+        probe_locations_xy = [[[0.1,0.1],[0,0.1],[-0.1,0.1]],[[0.1,0],[0,0],[-0.1,0]],[[0.1,-0.1],[0,-0.1],[-0.1,-0.1]]] # relative to ghome_gcode
 
         # Apply reaction motion if the force in negative z-direction is greater than 10N
         reaction_motion = LinearRelativeMotion(Affine(0.0, 0.0, 0.01))  # Move up for 1cm
-        d2 = MotionData().with_reaction(Reaction(Measure.ForceZ() < -5.0), reaction_motion)
 
         self.robot.robot.set_dynamic_rel(0.05)
 
         for axis1 in range(3):
             for axis2 in range(3):
                 # Move to probe location
-                m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0],probe_locations_xy[axis1][axis2][1],0.40))
+                m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.robot.robot_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.robot.robot_home_pose_vec[1],0 + self.robot.robot_home_pose_vec[2]))
                 self.robot.robot.move(m1)
 
+                # Reset data reaction motion
+                d2 = MotionData().with_reaction(Reaction(Measure.ForceZ() < -5.0), reaction_motion)
+
                 # Move slowly towards print bed
-                m2 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0],probe_locations_xy[axis1][axis2][1],0.30))
+                m2 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.robot.robot_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.robot.robot_home_pose_vec[1],0.30))
                 self.robot.robot.move(m2, d2)
 
                 # Check if the reaction was triggered
@@ -249,7 +261,7 @@ class GCodeExecutor:
 
             # Stop motion if the overall force is greater than 30N
             data = MotionData().with_reaction(Reaction(Measure.ForceXYZNorm() > 15.0), reaction_motion)
-            motion = LinearMotion(Affine(point[0],point[1],point[2]))
+            motion = LinearMotion(Affine(point[0] + self.robot.robot.robot_home_pose_vec[0],point[1] + self.robot.robot.robot_home_pose_vec[1],point[2] + self.robot.robot.robot_home_pose_vec[2]))
 
             self.robot.robot.move(motion,data)
 
@@ -258,7 +270,7 @@ class GCodeExecutor:
                 print("Collision when checking build area.")
                 return False
 
-            reaction_motion = LinearMotion(Affine(point[0],point[1],point[2]))
+            reaction_motion = LinearMotion(Affine(point[0] + self.robot.robot.robot_home_pose_vec[0],point[1] + self.robot.robot.robot_home_pose_vec[1],point[2] + self.robot.robot.robot_home_pose_vec[2]))
 
         self.is_area_clear = True
 
@@ -269,13 +281,13 @@ class GCodeExecutor:
         # Calculate trapesoidal movement/velocity to reduce jerk and uphold correct extrusion speed
         # ?
         num_waypoints = interval[1]+1-interval[0]
-        waypoint_move = []
+        waypoints = []
 
         for point in range(interval[0],interval[1]+1):
 
-            waypoint_move.append(self.robot.WaypointMotion([Waypoint(Affine(self.read_param(point,'X'),self.read_param(point,'Y'),self.Z))]))
+            waypoints.append(self.robot.WaypointMotion([Waypoint(Affine(self.read_param(point,'X') + self.robot.robot_home_pose_vec[0],self.read_param(point,'Y') + self.robot.robot_home_pose_vec[1],self.Z + self.robot.robot_home_pose_vec[2]))]))
 
-        return waypoint_move
+        return waypoints
 
 
     # Blocking action
@@ -301,11 +313,11 @@ class GCodeExecutor:
         if command == 'G0':
             # Stop extrusion and move to target
             if self.read_param(interval[0],'X') != False and self.read_param(interval[0],'Y') != False:
-                self.robot.lin_move_to_point(self.read_param(interval[0],'X'),self.read_param(interval[0],'Y'),self.Z)
+                self.robot.lin_move_to_point(self.read_param(interval[0],'X') + self.robot.robot_home_pose_vec[0],self.read_param(interval[0],'Y') + self.robot.robot_home_pose_vec[1],self.Z + self.robot.robot_home_pose_vec[2])
 
         elif command == 'G1':
             # Find waypoints, trapesoidal movement?
-            final_pose = [self.read_param(interval[1],'X'),self.read_param(interval[1],'Y'),self.Z]
+            final_pose = [self.read_param(interval[1],'X') + self.robot.robot_home_pose_vec[0],self.read_param(interval[1],'Y') + self.robot.robot_home_pose_vec[1],self.Z + self.robot.robot_home_pose_vec[2]]
 
             if len(interval[1]+1-interval[0]) > 2: # arbitrary minimum waypoints, Remember to change! (this is going to go well....)
                 waypoints = self.make_waypoints(interval)
@@ -348,9 +360,9 @@ class GCodeExecutor:
 
             if self.read_command(element[0]) == 'G1':
                 try: # front-pad the start position to the coming series of moves
-                    x_coordinates.append(self.X)
-                    y_coordinates.append(self.Y)
-                    z_coordinates.append(self.Z)
+                    x_coordinates.append(self.X * 1000)
+                    y_coordinates.append(self.Y * 1000)
+                    z_coordinates.append(self.Z * 1000)
                     colors.append(greyscale_feedrate)
                 except: # For initial G1 commands before any x-y coodrinates have been set
                     pass
@@ -364,9 +376,9 @@ class GCodeExecutor:
                         self.Y = y
 
                         if self.read_param(point,'E') > extrusion_distance and self.read_param(point,'E') != False:
-                            x_coordinates.append(x)
-                            y_coordinates.append(y)
-                            z_coordinates.append(z)
+                            x_coordinates.append(x * 1000)
+                            y_coordinates.append(y * 1000)
+                            z_coordinates.append(z * 1000)
                             colors.append(greyscale_feedrate)
 
                             extrusion_distance = self.read_param(point,'E')
@@ -385,12 +397,12 @@ class GCodeExecutor:
                         self.X = x
                         self.Y = y
             
-        df = pd.DataFrame(dict(
-            x = x_coordinates,
-            y = y_coordinates,
-            z = z_coordinates,
-            colors = colors
-        ))
+        # df = pd.DataFrame(dict(
+        #     x = x_coordinates,
+        #     y = y_coordinates,
+        #     z = z_coordinates,
+        #     colors = colors
+        # ))
 
         largest_axis = max([self.Xmax[1]-self.Xmax[0],self.Ymax[1]-self.Ymax[0],self.Zmax[1]-self.Zmax[0]])
         axis_scale = [(self.Xmax[1]-self.Xmax[0])/largest_axis,(self.Ymax[1]-self.Ymax[0])/largest_axis,(self.Zmax[1]-self.Zmax[0])/largest_axis]
@@ -401,7 +413,7 @@ class GCodeExecutor:
             line=dict(
                 width=6,
                 color=colors,
-                colorscale=[[0,'rgb(0,0,0)'],[1,'rgb(0,255,255)']]
+                colorscale=[[0,'rgb(255,0,0)'],[1,'rgb(0,0,255)']]
                 ),
             connectgaps=False
             ))
@@ -414,6 +426,8 @@ class GCodeExecutor:
                 aspectratio = dict( x=axis_scale[0], y=axis_scale[1], z=axis_scale[2] ),
                 aspectmode = 'manual'
             ),
+            title_text=('Visualization of extruded filament paths for ' + self.filename),
+            showlegend=True
         )
 
         fig.show()
