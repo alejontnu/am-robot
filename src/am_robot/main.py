@@ -37,7 +37,7 @@ def main():
 
     parser.add_argument('--host', default='10.0.0.2', type=str, help='FCI IP of the robot')
     parser.add_argument('--tool', default='10.0.0.3', type=str, help='Connection of the tool used')
-    parser.add_argument('--home_mode', default='Guiding', type=str, help='Mode type for homing to (0,0) of Gcode point. Guiding to manually position end-effector nozzle')
+    parser.add_argument('--home_mode', default='Guiding', help='Mode type for homing to (0,0) of Gcode point. Guiding to manually position end-effector nozzle')
     parser.add_argument('--gfile', default='Circle.gcode', type=str, help='Gcode file name')
     parser.add_argument('--t_tool', default=[0,0,-0.1], type=list, help='Translation due to Tool as [x,y,z]')
     parser.add_argument('--d_nozzle', default=0.8, type=float, help='Hot-End Nozzle diameter')
@@ -57,8 +57,9 @@ def main():
     executor = GCodeExecutor.GCodeExecutor(args.gfile,robot,extruder_tool)
     executor.load_gcode()
 
-    print("robot object")
-    print(executor.robot.robot)
+    print(executor.list_of_intervals)
+
+    print("Done pre-processing gcode")
 
     if args.visualize:
         time_elapsed_task = time.time()
@@ -66,20 +67,33 @@ def main():
         executor.visualize_gcode()
         time_elapsed_task = time.time() - time_elapsed_task
     
+
     if executor.robot.is_connected:
         # Manually position end effector/extrusion nozzle at 'home' point
         executor.home_gcode(args.home_mode)
+        
+        # Check bounds for build area
+        #proceed = executor.is_build_feasible()
+        
         # Uses force feedback to determine where n points of the print bed are located
+        #if proceed:
         #executor.probe_bed()
+        
         # Make a bed mesh for knowing the surface flatness and location of build area
         #executor.construct_bed_mesh()
-
+        
+        count = 0
+        
         time_elapsed_task = time.time()
         for interval in executor.list_of_intervals:
             # Blocking function:
+            print(executor.list_of_intervals[count])
             executor.run_code_segment(interval)
+            count = count + 1
+            if count > 14:
+                break
         time_elapsed_task = time.time() - time_elapsed_task
-
+        
     time_elapsed_total = time.time() - time_elapsed_total
 
     print(f"Task done in {time_elapsed_task:.5f}s")

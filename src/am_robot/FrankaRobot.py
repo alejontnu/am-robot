@@ -1,4 +1,4 @@
-from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState
+from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion
 import math
 
 class FrankaRobot:
@@ -7,7 +7,7 @@ class FrankaRobot:
 
         self.ip = _host
 
-        if _skip_connection:
+        if _skip_connection == True:
             print("Skipped trying to connect to robot with IP: " + self.ip)
             self.robot = {}
             self.current_pose = []
@@ -16,24 +16,27 @@ class FrankaRobot:
         else:
             try:
                 print("Attempting to connect to robot...")
-                self.robot = Robot(robot_ip,repeat_on_error=False)
+                self.robot = Robot(self.ip,repeat_on_error=False)
             except Exception as e:
                 print("Could not connect to robot on IP: " + self.ip + "\n")
                 raise e 
             else:
                 print("Connected to robot in IP: " + self.ip)
-                print(robot)
+                print(self.robot)
 
                 self.is_connected = True
 
         self.radius = 0.855
         self.height_up = 1.190
-        self.height_down = 0.360
+        self.height_down = -0.360
         self.sweep_angle = 2 * math.pi
         self.base_area = 0.1 # front area radius
 
     def set_robot_mode(self,mode):
-        self.RobotMode(mode)
+        if mode == 'Guiding':
+            RobotMode.Guiding
+        elif mode == 'idle':
+            RobotMode.Idle
 
     def read_Robot_state(self,state):
         return RobotState.__dict__[state]
@@ -43,7 +46,7 @@ class FrankaRobot:
         self.robot.move(move)
 
     def follow_waypoints(self,waypoints):
-        self.robot.move(waypoints)
+        self.robot.move(WaypointMotion(waypoints))
 
     def robot_home_move(self):
         self.robot.set_default_behavior()
@@ -59,13 +62,15 @@ class FrankaRobot:
         #robot.move(JointMotion([-1.811944, 1.179108, 1.757100, -2.14162, -1.143369, 1.633046, -0.432171]))
 
         # Define and move forwards
-        self.camera_frame = Affine(y=0.05)
+        self.tool_frame = Affine(z=-0)
         self.robot_home_pose = Affine(0.480, 0.0, 0.40) # NB not same as auto-home extruder
         self.robot_home_pose_vec = [0.480,0.0,0.40]
 
-        self.robot.move(self.camera_frame, LinearMotion(self.robot_home_pose, 1.75))
+        self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose, 1.75))
 
         self.home_pose = self.read_current_pose()
+        print("Home pose: ")
+        print(self.home_pose)
 
     def read_current_pose(self):
         return self.robot.current_pose()

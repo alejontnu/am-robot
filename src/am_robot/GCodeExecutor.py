@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from gcodeparser import GcodeParser
-from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, Reaction, Robot, RobotMode, RobotState, StopMotion
+from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion
 
 import am_robot
 import ExtruderTool
@@ -96,7 +96,6 @@ class GCodeExecutor:
 
     # Find the next instance of retraction (NB may be 0mm retraction)
     def find_next_interval(self):
-        previous_interval = self.interval
         if self.list_of_intervals == []:
             self.append_interval()
 
@@ -121,14 +120,20 @@ class GCodeExecutor:
             # Find desired interval change condition
             if self.read_param(line_number,'Z') != False and self.read_param(line_number, 'Z') != self.get_param('Z'):
                 interval = [self.interval[1]+1,line_number-1]
+                if interval[1]<interval[0]:
+                    interval = [line_number,line_number]
                 self.set_param(line_number,'Z')
                 break
             elif self.read_param(line_number,'E') != False and self.read_param(line_number,'E') < self.get_param('E'):
                 interval = [self.interval[1]+1,line_number-1]
+                if interval[1]<interval[0]:
+                    interval = [line_number,line_number]
                 self.set_param(line_number,'E')
                 break
             elif self.read_command(line_number) != self.read_command(self.interval[1]+1):
                 interval = [self.interval[1]+1,line_number-1]
+                if interval[1]<interval[0]:
+                    interval = [line_number,line_number]
                 break
             elif self.read_param(line_number,'F') != False and self.read_param(line_number,'F') != self.get_param('F'): 
             # Check if this is wanted, or append this last x-y line to interval
@@ -136,6 +141,8 @@ class GCodeExecutor:
                 self.set_extremes(self.F,'Fmax')
                 if self.read_param(line_number,'X') == False and self.read_param(line_number,'Y') == False:
                     interval = [self.interval[1]+1,line_number-1]
+                    if interval[1]<interval[0]:
+                        interval = [line_number,line_number]
                     break
             else:
                 # Typically when the next line is just another X-Y coordinate
@@ -164,9 +171,6 @@ class GCodeExecutor:
         with open(fullpath,'r') as file:
             self.gcodelines = GcodeParser(file.read()).lines
 
-        self.number_of_lines = len(self.gcodelines)
-        self.find_intervals()
-
         # gcode is in mm, change to m for robot
         for line in self.gcodelines:
             for element in line.params:
@@ -177,22 +181,31 @@ class GCodeExecutor:
                 if element == 'Z':
                     line.update_param('Z',line.get_param('Z')/1000)
 
+        self.number_of_lines = len(self.gcodelines)
+        self.find_intervals()
 
     def home_gcode(self,homing_type):
         if homing_type == 'Guiding':
             self.robot.robot_home_move()
 
-            robot_home_pose = self.robot.get_current_pose()
+            robot_home_pose = self.robot.read_current_pose()
 
-            self.robot.set_robot_mode(homing_type)
+            #self.robot.set_robot_mode(homing_type)
 
-            input("Position end-effector nozzle < 1cm from desired (0,0) location.\n When satisfied with position, press Enter to continue...")
-            self.gcode_home_pose = self.robot.get_current_pose()
+            print("INFO: To enter guiding mode, EMERGENCY STOP button needs to be pressed DOWN and the robot light should be continuously WHITE!")
+            print("After positioning robot, open the EMERGENCY STOP button to its UP position! The robot should the have BLUE lights")
+            #input("Position end-effector nozzle < 1cm from desired (0,0) location.\nWhen satisfied with position, press Enter to continue...")
+            self.gcode_home_pose = self.robot.read_current_pose()
+            self.gcode_home_pose_vec = self.gcode_home_pose.vector()
 
             # Can potentially add collision detection here to further improve home point. 
             # But new (0,0) point can be chosen from mid point of bed probing afterwards
 
-            self.robot.set_robot_mode('Idle')
+            #self.robot.set_robot_mode('Idle')
+
+        elif homing_type == 'known':
+            print("set gcode_home to this value. Home point assumed known")
+            self.gcode_home_pose_vec = [0.48,0.0,0.0,math.pi/2,0.0,0.0]
 
         else:
             print("Failed to home gcode zero... Check RobotMode input")
@@ -203,34 +216,41 @@ class GCodeExecutor:
         # Apply reaction motion if the force in negative z-direction is greater than 10N
         reaction_motion = LinearRelativeMotion(Affine(0.0, 0.0, 0.01))  # Move up for 1cm
 
-        self.robot.robot.set_dynamic_rel(0.05)
+        bed_grid = [[[],[],[]],[[],[],[]],[[],[],[]]] # ugly ik
 
         for axis1 in range(3):
             for axis2 in range(3):
+
+                self.robot.robot.set_dynamic_rel(0.1)
                 # Move to probe location
-                m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.robot.robot_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.robot.robot_home_pose_vec[1],0 + self.robot.robot_home_pose_vec[2]))
+                m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2]))
                 self.robot.robot.move(m1)
 
                 # Reset data reaction motion
-                d2 = MotionData().with_reaction(Reaction(Measure.ForceZ() < -5.0), reaction_motion)
+                d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -5.0, reaction_motion))
+
+                self.robot.robot.set_dynamic_rel(0.02)
 
                 # Move slowly towards print bed
-                m2 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.robot.robot_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.robot.robot_home_pose_vec[1],0.30))
+                m2 = LinearRelativeMotion(Affine(0.0,0.0,-0.05))
                 self.robot.robot.move(m2, d2)
 
                 # Check if the reaction was triggered
-                if d2.has_fired:
+                if d2.did_break:
                     self.robot.robot.recover_from_errors()
-                    current_pose = self.robot.read_current_pose()
-                    print('Force exceeded 10N!')
+                    print('Force exceeded 5N!')
                     print(f"Hit something for probe location x: {axis1}, y: {axis2}")
-                    print(current_pose)
 
-                    bed_grid[axis1][axis2] = current_pose
-
-                elif not d2.has_fired:
+                elif not d2.did_break:
                     print(f"Did not hit anything for probe location x: {axis1}, y: {axis2}")
+                    # abort if to many points not found ?
 
+                current_pose = self.robot.read_current_pose()
+                vector_pose = current_pose.vector()
+                probe_point = vector_pose[0:3]
+                bed_grid[axis1][axis2] = probe_point
+
+        print(bed_grid)
         self.bed_points = bed_grid
 
     def approximate_bed_offset_from_mesh(self):
@@ -238,39 +258,45 @@ class GCodeExecutor:
 
     def does_model_fit_bed(self):
         # Assumes a Cubic build volume.. Should use actual spherical volume
-        if ((self.Xmax[1]+self.robot.robot.robot_home_pose_vec[0] >= self.robot.robot.radius) 
-            or (self.Xmax[0]-self.robot.robot.robot_home_pose_vec[0] <= self.robot.robot.base_area) 
-            or (self.Ymax[1]+self.robot.robot.robot_home_pose_vec[1] >= self.robot.robot.radius) 
-            or (self.Ymax[0]-self.robot.robot.robot_home_pose_vec[1] <= self.robot.robot.base_area) 
-            or (self.Zmax[1]+self.robot.robot.robot_home_pose_vec[2] >= self.robot.robot.height_up) 
-            or (self.Zmax[0]-self.robot.robot.robot_home_pose_vec[2] <= self.robot.robot.height_down)):
+        # Change home pose to gcode home, checks then the spedific placement after homeing gcode zero
+        if ((self.Xmax[1]+self.robot.robot_home_pose_vec[0] >= self.robot.radius) 
+            or (self.Xmax[0]+self.robot.robot_home_pose_vec[0] <= self.robot.base_area) 
+            or (self.Ymax[1]+self.robot.robot_home_pose_vec[1] >= self.robot.radius) 
+            #or (self.Ymax[0]+self.robot.robot_home_pose_vec[1] <= self.robot.base_area) 
+            or (self.Zmax[1]+self.robot.robot_home_pose_vec[2] >= self.robot.height_up) 
+            or (self.Zmax[0]+self.robot.robot_home_pose_vec[2] <= self.robot.height_down)):
+            print("here")
+            print(self.Xmax)
+            print(self.Ymax)
+            print(self.Zmax)
+            print(self.robot.robot_home_pose_vec)
             return False
         else:
             return True
 
-    def is_build_feasable(self):
+    def is_build_feasible(self):
         if not self.does_model_fit_bed():
             print("Model does not fit on build plate")
             return False
 
         # move in a square and detect collision
-        edge_points = [[self.Xmax[1],self.Ymax[1],self.Zmax[0]+0.1],[self.Xmax[0],self.Ymax[1],self.Zmax[0]+0.1],[self.Xmax[0],self.Ymax[0],self.Zmax[0]+0.1],[self.Xmax[1],self.Ymax[0],self.Zmax[0]+0.1],[self.Xmax[1],self.Ymax[1],self.Zmax[0]+0.1]]
-        reaction_motion = LinearMotion(Affine(self.robot.robot.robot_home_pose_vec[0],self.robot.robot.robot_home_pose_vec[1],self.robot.robot.robot_home_pose_vec[2]))
+        edge_points = [[self.Xmax[1],self.Ymax[1],self.Zmax[0]+0.02],[self.Xmax[0],self.Ymax[1],self.Zmax[0]+0.02],[self.Xmax[0],self.Ymax[0],self.Zmax[0]+0.02],[self.Xmax[1],self.Ymax[0],self.Zmax[0]+0.02],[self.Xmax[1],self.Ymax[1],self.Zmax[0]+0.02]]
+        reaction_motion = LinearMotion(Affine(self.robot.robot_home_pose_vec[0],self.robot.robot_home_pose_vec[1],self.robot.robot_home_pose_vec[2]))
 
         for point in edge_points:
 
             # Stop motion if the overall force is greater than 30N
-            data = MotionData().with_reaction(Reaction(Measure.ForceXYZNorm() > 15.0), reaction_motion)
-            motion = LinearMotion(Affine(point[0] + self.robot.robot.robot_home_pose_vec[0],point[1] + self.robot.robot.robot_home_pose_vec[1],point[2] + self.robot.robot.robot_home_pose_vec[2]))
+            data = MotionData().with_reaction(Reaction(Measure.ForceXYZNorm > 30.0, reaction_motion))
+            motion = LinearMotion(Affine(point[0] + self.robot.robot_home_pose_vec[0],point[1] + self.robot.robot_home_pose_vec[1],point[2]))
 
             self.robot.robot.move(motion,data)
 
-            if data.has_fired:
+            if data.did_break:
                 self.robot.robot.recover_from_errors()
                 print("Collision when checking build area.")
                 return False
 
-            reaction_motion = LinearMotion(Affine(point[0] + self.robot.robot.robot_home_pose_vec[0],point[1] + self.robot.robot.robot_home_pose_vec[1],point[2] + self.robot.robot.robot_home_pose_vec[2]))
+            reaction_motion = LinearMotion(Affine(point[0] + self.robot.robot_home_pose_vec[0],point[1] + self.robot.robot_home_pose_vec[1],point[2]))
 
         self.is_area_clear = True
 
@@ -284,9 +310,7 @@ class GCodeExecutor:
         waypoints = []
 
         for point in range(interval[0],interval[1]+1):
-
-            waypoints.append(self.robot.WaypointMotion([Waypoint(Affine(self.read_param(point,'X') + self.robot.robot_home_pose_vec[0],self.read_param(point,'Y') + self.robot.robot_home_pose_vec[1],self.Z + self.robot.robot_home_pose_vec[2]))]))
-
+            waypoints.append(Waypoint(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2])))
         return waypoints
 
 
@@ -300,7 +324,7 @@ class GCodeExecutor:
 
         # Reset extruder distance
         if self.read_param(interval[0],'E') != False and command == 'G92':
-            self.E = self.read_param(element[0],'E')
+            self.E = self.read_param(interval[0],'E')
 
         # Find current / new z-height
         if self.read_param(interval[0],'Z') != False:
@@ -308,33 +332,42 @@ class GCodeExecutor:
 
         # Find desired feedrate / working speed
         if self.read_param(interval[0],'F') != False:
-            self.F = self.read_param(element[0],'F')
+            self.F = self.read_param(interval[0],'F')
 
         if command == 'G0':
             # Stop extrusion and move to target
             if self.read_param(interval[0],'X') != False and self.read_param(interval[0],'Y') != False:
-                self.robot.lin_move_to_point(self.read_param(interval[0],'X') + self.robot.robot_home_pose_vec[0],self.read_param(interval[0],'Y') + self.robot.robot_home_pose_vec[1],self.Z + self.robot.robot_home_pose_vec[2])
+                print([self.read_param(interval[0],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[0],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]])
+                input("continue? lin move...")
+                self.robot.lin_move_to_point(self.read_param(interval[0],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[0],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2])
 
         elif command == 'G1':
             # Find waypoints, trapesoidal movement?
-            final_pose = [self.read_param(interval[1],'X') + self.robot.robot_home_pose_vec[0],self.read_param(interval[1],'Y') + self.robot.robot_home_pose_vec[1],self.Z + self.robot.robot_home_pose_vec[2]]
+            final_pose = [self.read_param(interval[1],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[1],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]]
 
-            if len(interval[1]+1-interval[0]) > 2: # arbitrary minimum waypoints, Remember to change! (this is going to go well....)
+            if interval[1]+1-interval[0] > 2: # arbitrary minimum waypoints, Remember to change! (this is going to go well....)
                 waypoints = self.make_waypoints(interval)
                 # check bounds?
                 # set extrusion speed
                 # feed waypoints to robot and listen to robot pose
+                input("start waypoint move...")
+
+                self.robot.robot.set_dynamic_rel(0.05)
+
                 self.robot.follow_waypoints(waypoints)
 
-                while self.robot.read_current_pose() != final_pose:
-                    time.sleep(1)
-                    print("final pose: ")
-                    print(final_pose)
-                    print("Current pose: ")
-                    print(self.robot.read_current_pose())
+                print(self.robot.read_current_pose())
+                print(final_pose)
+
+                # while self.robot.read_current_pose() != final_pose:
+                #     time.sleep(1)
+                #     print("final pose: ")
+                #     print(final_pose)
+                #     print("Current pose: ")
+                #     print(self.robot.read_current_pose())
 
             if self.read_param(interval[0],'E') != False:
-                self.E = self.read_param(element[0],'E')
+                self.E = self.read_param(interval[0],'E')
 
 
 
