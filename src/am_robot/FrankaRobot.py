@@ -1,4 +1,14 @@
-from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion
+
+if sys.platform == 'linux':
+    from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion
+elif sys.platform == 'win32':
+    try:
+        from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion
+    except Exception as e:
+        print(e)
+    finally:
+        print('Running on OS: ' + sys.platform)
+
 import math
 
 class FrankaRobot:

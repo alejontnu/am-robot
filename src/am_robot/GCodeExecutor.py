@@ -1,13 +1,23 @@
 import os
 import time
 import math
+import sys
 
+import argparse
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
 from gcodeparser import GcodeParser
-from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion
+if sys.platform == 'linux':
+    from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion
+elif sys.platform == 'win32':
+    try:
+        from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion   
+    except Exception as e:
+        print(e)
+    finally:
+        print('Running on OS: ' + sys.platform)
 
 import am_robot
 import ExtruderTool
@@ -446,6 +456,14 @@ class GCodeExecutor:
             line=dict(
                 width=6,
                 color=colors,
+                cmin=0,
+                cmax=self.Fmax[1],
+                colorbar=dict(
+                    borderwidth=0,
+                    title=dict(
+                        text='Feedrate [mm/min]'
+                    )
+                ),
                 colorscale=[[0,'rgb(255,0,0)'],[1,'rgb(0,0,255)']]
                 ),
             connectgaps=False
@@ -460,7 +478,7 @@ class GCodeExecutor:
                 aspectmode = 'manual'
             ),
             title_text=('Visualization of extruded filament paths for ' + self.filename),
-            showlegend=True
+            showlegend=False
         )
 
         fig.show()
@@ -477,3 +495,14 @@ class GCodeExecutor:
             print(f"\nName of file being processed: {self.filename + '.gcode'}")
         print(f"Number of command lines processed: {self.number_of_lines}")
         print("Total filament used: \n")
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(add_help=True)
+
+    parser.add_argument('--gfile',default='Circle')
+
+    args = parser.parse_args()
+
+    model = GCodeExecutor(args.gfile,{},{})
+    model.load_gcode()
+    model.visualize_gcode()
