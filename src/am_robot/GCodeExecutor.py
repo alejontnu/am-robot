@@ -263,8 +263,35 @@ class GCodeExecutor:
         print(bed_grid)
         self.bed_points = bed_grid
 
-    def approximate_bed_offset_from_mesh(self):
-        self.bed_mesh = 0 # matrice with values?
+    def calculate_bed_surface_plane(self):
+        '''
+        Calculate the plane equation given by ax + by + cz + d = 0
+        
+        Usage
+        -----
+        Uses 3 non-collinear points A, B and C and calculates the cross product AB x AC = [a,b,c] and d = -(aAx + bAy + cAz)
+        '''
+        # Points
+        A = self.bed_points[1][1]
+        B = self.bed_points[2][0]
+        C = self.bed_points[0][2]
+
+        AB = [B[0]-A[0],B[1]-A[1],B[2]-A[2]]
+        AC = [C[0]-A[0],C[1]-A[1],C[2]-A[2]]
+
+        ABxAC = np.cross(AB,AC)
+        a = ABxAC[0]
+        b = ABxAC[1]
+        c = ABxAC[2]
+        d = -(a*A[0] + b*A[1] + c*A[2])
+        self.bed_plane_abcd = [a,b,c,d]
+
+    def vertical_bed_level_compensation(self,point):
+        '''
+        Calculates the vertical compensation needed due to non-horizontal build plane.
+        Compensation is made based on z height equal to 0, making the z component of 'point' excessive and unused
+        '''
+        return z_compensation = -(self.bed_plane_abcd[0]*point[0] + self.bed_plane_abcd[1]*point[1] + self.bed_plane_abcd[3])
 
     def does_model_fit_bed(self):
         # Assumes a Cubic build volume.. Should use actual spherical volume
@@ -399,7 +426,7 @@ class GCodeExecutor:
                 self.Z = z
 
             if self.read_param(element[0],'F') != False:
-                greyscale_feedrate = self.read_param(element[0],'F')/self.Fmax[1]
+                greyscale_feedrate = self.read_param(element[0],'F')#/self.Fmax[1]
 
             if self.read_command(element[0]) == 'G1':
                 try: # front-pad the start position to the coming series of moves
@@ -439,13 +466,7 @@ class GCodeExecutor:
 
                         self.X = x
                         self.Y = y
-            
-        # df = pd.DataFrame(dict(
-        #     x = x_coordinates,
-        #     y = y_coordinates,
-        #     z = z_coordinates,
-        #     colors = colors
-        # ))
+
 
         largest_axis = max([self.Xmax[1]-self.Xmax[0],self.Ymax[1]-self.Ymax[0],self.Zmax[1]-self.Zmax[0]])
         axis_scale = [(self.Xmax[1]-self.Xmax[0])/largest_axis,(self.Ymax[1]-self.Ymax[0])/largest_axis,(self.Zmax[1]-self.Zmax[0])/largest_axis]
@@ -470,8 +491,6 @@ class GCodeExecutor:
             ))
 
         fig.update_layout(
-            #width=800,
-            #height=700,
             autosize=True,
             scene=dict(
                 aspectratio = dict( x=axis_scale[0], y=axis_scale[1], z=axis_scale[2] ),

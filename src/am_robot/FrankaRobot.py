@@ -1,3 +1,5 @@
+import sys
+import math
 
 if sys.platform == 'linux':
     from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion
@@ -9,7 +11,6 @@ elif sys.platform == 'win32':
     finally:
         print('Running on OS: ' + sys.platform)
 
-import math
 
 class FrankaRobot:
     def __init__(self,_host,_skip_connection):

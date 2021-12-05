@@ -1,4 +1,5 @@
 import serial
+import math
 
 class ExtruderTool:
     '''
@@ -29,6 +30,7 @@ class ExtruderTool:
 
     def set_feedrate(self,feedrate):
         self.ser.open()
+        motor_frequency = feedrate_to_motor_frequency(feedrate)
         self.ser.write(b'X')# + 4 bytes of number
         self.close()
 
@@ -67,8 +69,9 @@ class ExtruderTool:
         letter = b[0]
 
         if letter == 69:
-            [val] = struct.unpack('f',b[1:5])
-            print(f"Extrusion rate is {val} mm/s")
+            [motor_frequency] = struct.unpack('f',b[1:5])
+            feedrate = motor_frequency_to_feedrate(motor_frequency)
+            print(f"Extrusion rate is {motor_frequency} mm/s")
         else:
             print("Value other than E read. Ignoring...")
 
@@ -83,3 +86,14 @@ class ExtruderTool:
         self.ser.open()
         self.ser.write(b'N')
         self.close()
+
+    def feedrate_to_motor_frequency(self,feedrate):
+        motor_frequency = steps_per_mm_filament * feedrate
+        return motor_frequency
+
+    def motor_frequency_to_feedrate(self,motor_frequency):
+        feedrate = motor_frequency / steps_per_mm_filament
+        return feedrate
+
+    def calculate_steps_per_mm(self):
+        return motor_steps_per_revolution * micro_stepping * gear_ratio / (hobb_diameter_mm * math.pi)
