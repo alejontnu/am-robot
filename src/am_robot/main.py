@@ -13,20 +13,30 @@ elif sys.platform == 'win32':
         print('Running on OS: ' + sys.platform)
 
 
-from am_robot import GCodeExecutor
-from am_robot import ExtruderTool
-from am_robot import FrankaRobot
+from am_robot.GCodeExecutor import GCodeExecutor
+from am_robot.ExtruderTool import ExtruderTool
+from am_robot.FrankaRobot import FrankaRobot
 
 def main():
     '''
-    Helper function that converts a parsed Gcode line into a dict structure
+    Additive manufactureing package for the Franka Emika Panda robot manipulator.
 
-    Parameters:
+    Arguments:
     -----------
+    host: string
+        ip string used for robot connection (default: 10.0.0.2)
+    tool: string
+        serial string used for tool connection (default: /dev/ttyS5)
+    gfile: string
+        string name of gcode file used for additive manufacturing, with or without .gcode ending (default: Circle.gcode)
+    visualize: bool, optional
+        flag for enabling visualization for gcode (default: False)
+    skip_connection: bool, optional
+        flag for skipping connection with robot, useful when hardware is not connected (default: False)
 
     Returns:
     -----------
-    
+    3D object or visualization of object (hopefully)
     '''
 
     ''' Parsing input arguments '''
@@ -37,7 +47,7 @@ def main():
 
     parser.add_argument('--host', default='10.0.0.2', type=str, help='FCI IP of the robot')
     parser.add_argument('--tool', default='/dev/ttyS5', type=str, help='Serial connection of the tool used')
-    parser.add_argument('--home_mode', default='Guiding', help='Mode type for homing to (0,0) of Gcode point. Guiding to manually position end-effector nozzle')
+    parser.add_argument('--home_mode', default='Guiding', type=str, help='Mode type for homing to (0,0) of Gcode point. Guiding to manually position end-effector nozzle')
     parser.add_argument('--gfile', default='Circle.gcode', type=str, help='Gcode file name')
     parser.add_argument('--t_tool', default=[0,0,-0.1], type=list, help='Translation due to Tool as [x,y,z]')
     parser.add_argument('--d_nozzle', default=0.8, type=float, help='Hot-End Nozzle diameter')
@@ -48,16 +58,11 @@ def main():
 
     time_elapsed_task = time.time()
     time_elapsed_total = time.time()
-
-    #if args.visualize:
-    #    args.skip_connection = True
     
-    extruder_tool = ExtruderTool.ExtruderTool('FDM',args.tool,args.f_width,args.d_nozzle,args.t_tool)
-    robot = FrankaRobot.FrankaRobot(args.host,args.skip_connection)
-    executor = GCodeExecutor.GCodeExecutor(args.gfile,robot,extruder_tool)
+    tool = ExtruderTool('FDM',args.tool,args.f_width,args.d_nozzle,args.t_tool)
+    robot = FrankaRobot(args.host,args.skip_connection)
+    executor = GCodeExecutor(args.gfile,robot,tool)
     executor.load_gcode()
-
-    print(executor.list_of_intervals)
 
     print("Done pre-processing gcode")
 
@@ -66,6 +71,10 @@ def main():
         executor.display()
         executor.visualize_gcode()
         time_elapsed_task = time.time() - time_elapsed_task
+
+        print(f"Visualization done in {time_elapsed_task:.5f}s")
+
+        input("Press Enter to continue if satisfied with model plot...")
     
 
     if executor.robot.is_connected:
@@ -73,26 +82,27 @@ def main():
         executor.home_gcode(args.home_mode)
         
         # Check bounds for build area
-        #proceed = executor.is_build_feasible()
+        proceed = executor.is_build_feasible()
         
         # Uses force feedback to determine where n points of the print bed are located
-        #if proceed:
-        #executor.probe_bed()
+        if proceed:
+            executor.probe_bed()
         
         # Make a bed mesh for knowing the surface flatness and location of build area
-        #executor.construct_bed_mesh()
+            #executor.construct_bed_mesh()
         
-        count = 0
-        
-        time_elapsed_task = time.time()
-        for interval in executor.list_of_intervals:
-            # Blocking function:
-            print(executor.list_of_intervals[count])
-            executor.run_code_segment(interval)
-            count = count + 1
-            if count > 14:
-                break
-        time_elapsed_task = time.time() - time_elapsed_task
+            count = 0
+            
+            time_elapsed_task = time.time()
+            for interval in executor.list_of_intervals:
+                # Blocking function:
+                executor.run_code_segment(interval)
+                count = count + 1
+                if count > 14:
+                    break
+            time_elapsed_task = time.time() - time_elapsed_task
+        else:
+            print("Build is infeasible due to space constraints. Skipped to end...")
         
     time_elapsed_total = time.time() - time_elapsed_total
 

@@ -47,6 +47,9 @@ class GCodeExecutor:
         self.robot = _robot
         self.extruder_tool = _extruder_tool
 
+        # default planar bed
+        self.bed_plane_abcd = [0,0,0,0]
+
 
     def get_interval(self):
         return self.interval
@@ -194,17 +197,31 @@ class GCodeExecutor:
         self.number_of_lines = len(self.gcodelines)
         self.find_intervals()
 
+    def convert_per_minute_to_per_second(self,value_per_minute):
+        return value_per_minute/60
+
+    def convert_per_second_to_per_minute(self,value_per_second):
+        return value_per_second*60
+
+    def calculate_difference(self,first_value,second_value):
+        return second_value-first_value
+
+    def calculate_delta_t(self,feedrate,delta_mm):
+        return delta_mm/self.convert_per_minute_to_per_second(feedrate)
+
+    def calculate_max_velocity(self,feedrate):
+        cartesian_max_vel = 1700 #mm/s
+        return self.convert_per_minute_to_per_second(feedrate)/cartesian_max_vel
+
+
     def home_gcode(self,homing_type):
         if homing_type == 'Guiding':
             self.robot.robot_home_move()
 
-            robot_home_pose = self.robot.read_current_pose()
-
-            #self.robot.set_robot_mode(homing_type)
-
             print("INFO: To enter guiding mode, EMERGENCY STOP button needs to be pressed DOWN and the robot light should be continuously WHITE!")
             print("After positioning robot, open the EMERGENCY STOP button to its UP position! The robot should the have BLUE lights")
-            #input("Position end-effector nozzle < 1cm from desired (0,0) location.\nWhen satisfied with position, press Enter to continue...")
+            input("Position end-effector nozzle < 1cm from desired (0,0) location.\nWhen satisfied with position, press Enter to continue...")
+
             self.gcode_home_pose = self.robot.read_current_pose()
             self.gcode_home_pose_vec = self.gcode_home_pose.vector()
 
@@ -214,7 +231,7 @@ class GCodeExecutor:
             #self.robot.set_robot_mode('Idle')
 
         elif homing_type == 'known':
-            print("set gcode_home to this value. Home point assumed known")
+            print("Set gcode_home to this value. Home point assumed known")
             self.gcode_home_pose_vec = [0.48,0.0,0.0,math.pi/2,0.0,0.0]
 
         else:
@@ -227,6 +244,8 @@ class GCodeExecutor:
         reaction_motion = LinearRelativeMotion(Affine(0.0, 0.0, 0.01))  # Move up for 1cm
 
         bed_grid = [[[],[],[]],[[],[],[]],[[],[],[]]] # ugly ik
+
+        contact_found = True
 
         for axis1 in range(3):
             for axis2 in range(3):
@@ -251,17 +270,22 @@ class GCodeExecutor:
                     print('Force exceeded 5N!')
                     print(f"Hit something for probe location x: {axis1}, y: {axis2}")
 
+                    current_pose = self.robot.read_current_pose()
+                    vector_pose = current_pose.vector()
+                    probe_point = vector_pose[0:3]
+                    probe_point[2] = probe_point[2] - 0.01 # correcting for moving 1 cm up after contact
+                    bed_grid[axis1][axis2] = probe_point
+
                 elif not d2.did_break:
                     print(f"Did not hit anything for probe location x: {axis1}, y: {axis2}")
-                    # abort if to many points not found ?
+                    contact_found = False
 
-                current_pose = self.robot.read_current_pose()
-                vector_pose = current_pose.vector()
-                probe_point = vector_pose[0:3]
-                bed_grid[axis1][axis2] = probe_point
-
-        print(bed_grid)
-        self.bed_points = bed_grid
+        if contact_found:
+            self.bed_points = bed_grid
+            self.calculate_bed_surface_plane()
+            self.gcode_home_pose_vec = bed_grid[1][1]
+        else:
+            print("One or more bed points was not found")
 
     def calculate_bed_surface_plane(self):
         '''
@@ -291,22 +315,17 @@ class GCodeExecutor:
         Calculates the vertical compensation needed due to non-horizontal build plane.
         Compensation is made based on z height equal to 0, making the z component of 'point' excessive and unused
         '''
-        return z_compensation = -(self.bed_plane_abcd[0]*point[0] + self.bed_plane_abcd[1]*point[1] + self.bed_plane_abcd[3])
+        return -(self.bed_plane_abcd[0]*point[0] + self.bed_plane_abcd[1]*point[1] + self.bed_plane_abcd[3])
 
     def does_model_fit_bed(self):
         # Assumes a Cubic build volume.. Should use actual spherical volume
         # Change home pose to gcode home, checks then the spedific placement after homeing gcode zero
-        if ((self.Xmax[1]+self.robot.robot_home_pose_vec[0] >= self.robot.radius) 
-            or (self.Xmax[0]+self.robot.robot_home_pose_vec[0] <= self.robot.base_area) 
-            or (self.Ymax[1]+self.robot.robot_home_pose_vec[1] >= self.robot.radius) 
-            #or (self.Ymax[0]+self.robot.robot_home_pose_vec[1] <= self.robot.base_area) 
-            or (self.Zmax[1]+self.robot.robot_home_pose_vec[2] >= self.robot.height_up) 
-            or (self.Zmax[0]+self.robot.robot_home_pose_vec[2] <= self.robot.height_down)):
-            print("here")
-            print(self.Xmax)
-            print(self.Ymax)
-            print(self.Zmax)
-            print(self.robot.robot_home_pose_vec)
+        if ((self.Xmax[1]+self.robot.gcode_home_pose_vec[0] >= self.robot.radius) 
+            or (self.Xmax[0]+self.robot.gcode_home_pose_vec[0] <= self.robot.base_area) 
+            or (self.Ymax[1]+self.robot.gcode_home_pose_vec[1] >= self.robot.radius) 
+            #or (self.Ymax[0]+self.robot.gcode_home_pose_vec[1] <= self.robot.base_area) 
+            or (self.Zmax[1]+self.robot.gcode_home_pose_vec[2] >= self.robot.height_up) 
+            or (self.Zmax[0]+self.robot.gcode_home_pose_vec[2] <= self.robot.height_down)):
             return False
         else:
             return True
@@ -315,6 +334,8 @@ class GCodeExecutor:
         if not self.does_model_fit_bed():
             print("Model does not fit on build plate")
             return False
+        else: # skipping lower part for now
+            return True
 
         # move in a square and detect collision
         edge_points = [[self.Xmax[1],self.Ymax[1],self.Zmax[0]+0.02],[self.Xmax[0],self.Ymax[1],self.Zmax[0]+0.02],[self.Xmax[0],self.Ymax[0],self.Zmax[0]+0.02],[self.Xmax[1],self.Ymax[0],self.Zmax[0]+0.02],[self.Xmax[1],self.Ymax[1],self.Zmax[0]+0.02]]
@@ -390,23 +411,21 @@ class GCodeExecutor:
                 input("start waypoint move...")
 
                 self.robot.robot.set_dynamic_rel(0.05)
-
-                self.robot.follow_waypoints(waypoints)
+                motion = WaypointMotion(waypoints,retrun_when_finished=False)
+                thread = self.robot.robot.move_async(motion)
 
                 print(self.robot.read_current_pose())
                 print(final_pose)
 
-                # while self.robot.read_current_pose() != final_pose:
-                #     time.sleep(1)
-                #     print("final pose: ")
-                #     print(final_pose)
-                #     print("Current pose: ")
-                #     print(self.robot.read_current_pose())
+                while self.robot.read_current_pose() != final_pose:
+                    time.sleep(1)
+                    print("final pose: ")
+                    print(final_pose)
+                    print("Current pose: ")
+                    print(self.robot.read_current_pose())
 
             if self.read_param(interval[0],'E') != False:
                 self.E = self.read_param(interval[0],'E')
-
-
 
     def visualize_gcode(self):
         z = 0

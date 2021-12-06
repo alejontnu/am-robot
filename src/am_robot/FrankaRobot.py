@@ -11,6 +11,14 @@ elif sys.platform == 'win32':
     finally:
         print('Running on OS: ' + sys.platform)
 
+'''
+change to inheritance 
+class Robot(ConnectedRobot)
+    def __init__(self,...)
+        super.__init__(...)
+where Robot is the abstract and ConnectedRobot is robot class used i.e. Robot from Frankx
+'''
+
 
 class FrankaRobot:
     def __init__(self,_host,_skip_connection):
@@ -57,7 +65,9 @@ class FrankaRobot:
         self.robot.move(move)
 
     def follow_waypoints(self,waypoints):
-        self.robot.move(WaypointMotion(waypoints))
+        motion = WaypointMotion(waypoints,return_when_finished=False)
+        thread = self.robot.move_async(motion)
+        self.robot.move()
 
     def robot_home_move(self):
         self.robot.set_default_behavior()

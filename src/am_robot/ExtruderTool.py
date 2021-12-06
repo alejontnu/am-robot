@@ -1,5 +1,6 @@
 import serial
 import math
+import struct
 
 class ExtruderTool:
     '''
@@ -25,75 +26,83 @@ class ExtruderTool:
         self.ser = serial.Serial()
         self.ser.port = self.port
 
+        self.motor_steps_per_revolution = 400
+        self.micro_stepping = 16
+        self.gear_ratio = 4
+        self.hobb_diameter_mm = 10
+
+        self.steps_per_mm_filament = self.calculate_steps_per_mm()
+
+
     def __str__(self):
         return "ToolType = "+str(self.tooltype)
 
     def set_feedrate(self,feedrate):
         self.ser.open()
-        motor_frequency = feedrate_to_motor_frequency(feedrate)
-        self.ser.write(b'X')# + 4 bytes of number
-        self.close()
+        motor_frequency = self.feedrate_to_motor_frequency(feedrate)
+        packed = struct.pack('b',motor_frequency)
+        self.ser.write(b'X'+packed)# + 4 bytes of number
+        self.ser.close()
 
     def set_nozzletemp(self,temperature):
         self.ser.open()
-        self.ser.write(b'H') # + 4 bytes of number
-        self.close()
+        packed = struct.pack('b',temperature)
+        self.ser.write(b'H'+packed) # + 4 bytes of number
+        self.ser.close()
 
     def blink_led(self):
         self.ser.open()
         self.ser.write(b'B')
-        self.close()
+        self.ser.close()
 
     def read_temperature(self):
         self.ser.open()
         self.ser.write(b'T')
-
         b = self.ser.read(5)
-
+        self.ser.close()
+        
         letter = b[0]
 
         if letter == 84:
-            [val] = struct.unpack('f',b[1:5])
-            print(f"Temperature is {val} degree celsius")
+            [temperature] = struct.unpack('f',b[1:5])
+            print(f"Temperature is {temperature} degree celsius")
+            return temperature
         else:
             print("Value other than T read. Ignoring...")
-
-        self.close()
-        return 0
 
     def read_extrusion_speed(self):
         self.ser.open()
         self.ser.write(b'E')
         b = self.ser.read(5)
+        self.ser.close()
 
         letter = b[0]
 
         if letter == 69:
             [motor_frequency] = struct.unpack('f',b[1:5])
-            feedrate = motor_frequency_to_feedrate(motor_frequency)
-            print(f"Extrusion rate is {motor_frequency} mm/s")
+            feedrate = self.motor_frequency_to_feedrate(motor_frequency)
+            print(f"Extrusion rate is {feedrate} mm/s")
+            return feedrate
         else:
             print("Value other than E read. Ignoring...")
-
-        self.close()
 
     def enable_periodic_updates(self):
         self.ser.open()
         self.ser.write(b'Y')
-        self.close()
+        self.ser.close()
 
     def disable_periodic_updates(self):
         self.ser.open()
         self.ser.write(b'N')
-        self.close()
+        self.ser.close()
 
     def feedrate_to_motor_frequency(self,feedrate):
-        motor_frequency = steps_per_mm_filament * feedrate
+        motor_frequency = self.steps_per_mm_filament * feedrate
         return motor_frequency
 
     def motor_frequency_to_feedrate(self,motor_frequency):
-        feedrate = motor_frequency / steps_per_mm_filament
+        feedrate = motor_frequency / self.steps_per_mm_filament
         return feedrate
 
     def calculate_steps_per_mm(self):
-        return motor_steps_per_revolution * micro_stepping * gear_ratio / (hobb_diameter_mm * math.pi)
+        return self.motor_steps_per_revolution * self.micro_stepping * self.gear_ratio / (self.hobb_diameter_mm * math.pi)
