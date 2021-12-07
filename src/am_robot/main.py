@@ -54,6 +54,7 @@ def main():
     parser.add_argument('--f_width', default=2.85, type=float, help='Width of filament used')
     parser.add_argument('--visualize', default=False, type=bool, help='Visualize the given Gcode as a 3D plot. Skips any hardware connection precess')
     parser.add_argument('--skip_connection', default=False, type=bool, help='If True, skips the connection to robot. For testing out-of-lab. Alse defaults too True if visualize is True')
+    parser.add_argument('--skip_probe',default=False,type=bool,help='If True, skips the bed probing step')
     args = parser.parse_args()
 
     time_elapsed_task = time.time()
@@ -83,24 +84,26 @@ def main():
         
         # Check bounds for build area
         proceed = executor.is_build_feasible()
-        
+
         # Uses force feedback to determine where n points of the print bed are located
         if proceed:
-            executor.probe_bed()
-        
-        # Make a bed mesh for knowing the surface flatness and location of build area
-            #executor.construct_bed_mesh()
-        
-            count = 0
+            if not args.skip_probe:
+                bed_found = executor.probe_bed()
+            else:
+                bed_found = True
             
-            time_elapsed_task = time.time()
-            for interval in executor.list_of_intervals:
-                # Blocking function:
-                executor.run_code_segment(interval)
-                count = count + 1
-                if count > 14:
-                    break
-            time_elapsed_task = time.time() - time_elapsed_task
+            if bed_found:
+            # Make a bed mesh for knowing the surface flatness and location of build area
+                #executor.construct_bed_mesh()
+                
+                time_elapsed_task = time.time()
+                for interval in executor.list_of_intervals:
+                    # Blocking function, exits after interval is done:
+                    executor.run_code_segment(interval)
+
+                time_elapsed_task = time.time() - time_elapsed_task
+            else:
+                print("One of more points of the bed was not found, check and level bed roughly")
         else:
             print("Build is infeasible due to space constraints. Skipped to end...")
         

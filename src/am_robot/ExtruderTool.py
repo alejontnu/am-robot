@@ -28,8 +28,8 @@ class ExtruderTool:
 
         self.motor_steps_per_revolution = 400
         self.micro_stepping = 16
-        self.gear_ratio = 4
-        self.hobb_diameter_mm = 10
+        self.gear_ratio = 3 # From datasheet
+        self.hobb_diameter_mm = 7.3 # From datasheet/manufacturer (effective and should be calibrated)
 
         self.steps_per_mm_filament = self.calculate_steps_per_mm()
 
@@ -40,13 +40,13 @@ class ExtruderTool:
     def set_feedrate(self,feedrate):
         self.ser.open()
         motor_frequency = self.feedrate_to_motor_frequency(feedrate)
-        packed = struct.pack('b',motor_frequency)
+        packed = struct.pack('f',motor_frequency)
         self.ser.write(b'X'+packed)# + 4 bytes of number
         self.ser.close()
 
     def set_nozzletemp(self,temperature):
         self.ser.open()
-        packed = struct.pack('b',temperature)
+        packed = struct.pack('f',temperature)
         self.ser.write(b'H'+packed) # + 4 bytes of number
         self.ser.close()
 
@@ -54,6 +54,14 @@ class ExtruderTool:
         self.ser.open()
         self.ser.write(b'B')
         self.ser.close()
+
+    def set_fanspeed(self,speed):
+        # not implemented
+        x=1
+
+    def disable_fan(self):
+        # not implemented
+        x=1
 
     def read_temperature(self):
         self.ser.open()
@@ -106,3 +114,19 @@ class ExtruderTool:
 
     def calculate_steps_per_mm(self):
         return self.motor_steps_per_revolution * self.micro_stepping * self.gear_ratio / (self.hobb_diameter_mm * math.pi)
+
+    def convert_per_minute_to_per_second(self,value_per_minute):
+        return value_per_minute/60
+
+    def convert_per_second_to_per_minute(self,value_per_second):
+        return value_per_second*60
+
+    def calculate_difference(self,first_value,second_value):
+        return second_value-first_value
+
+    def calculate_delta_t(self,feedrate,delta_mm):
+        return delta_mm/self.convert_per_minute_to_per_second(feedrate)
+
+    def calculate_max_velocity(self,feedrate):
+        cartesian_max_vel = 1700 #mm/s
+        return self.convert_per_minute_to_per_second(feedrate)/cartesian_max_vel

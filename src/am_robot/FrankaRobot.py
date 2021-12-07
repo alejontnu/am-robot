@@ -2,10 +2,10 @@ import sys
 import math
 
 if sys.platform == 'linux':
-    from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion
+    from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion
 elif sys.platform == 'win32':
     try:
-        from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion
+        from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion
     except Exception as e:
         print(e)
     finally:
@@ -76,22 +76,20 @@ class FrankaRobot:
         self.robot.recover_from_errors()
 
         # Set acceleration and velocity reduction
-        self.robot_dynamic_rel = 0.05
+        self.robot_dynamic_rel = 0.2
         self.robot.set_dynamic_rel(self.robot_dynamic_rel) # Default 0.1
 
-        # Joint motion - Wierd error here...
-        #robot.move(JointMotion([-1.811944, 1.179108, 1.757100, -2.14162, -1.143369, 1.633046, -0.432171]))
+        # Joint motion to set initial configuration
+        self.robot.move(JointMotion([0.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
 
-        # Define and move forwards
+        # Define and move to cartesian space
         self.tool_frame = Affine(z=-0)
-        self.robot_home_pose = Affine(0.480, 0.0, 0.40) # NB not same as auto-home extruder
-        self.robot_home_pose_vec = [0.480,0.0,0.40]
+        self.robot_home_pose = Affine(0.500, 0.0, 0.40) # NB not same as auto-home extruder
+        self.robot_home_pose_vec = [0.500,0.0,0.40]
 
-        self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose, 1.75))
+        #self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
 
         self.home_pose = self.read_current_pose()
-        print("Home pose: ")
-        print(self.home_pose)
 
     def read_current_pose(self):
         return self.robot.current_pose()

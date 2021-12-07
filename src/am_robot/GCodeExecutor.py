@@ -10,10 +10,10 @@ import plotly.graph_objects as go
 
 from gcodeparser import GcodeParser
 if sys.platform == 'linux':
-    from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion
+    from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, PathMotion, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion
 elif sys.platform == 'win32':
     try:
-        from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion   
+        from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, PathMotion, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion   
     except Exception as e:
         print(e)
     finally:
@@ -33,7 +33,7 @@ class GCodeExecutor:
     -----------
 
     '''
-    def __init__(self,_filename,_robot,_extruder_tool):
+    def __init__(self,_filename,_robot,tool):
         self.filename = _filename
         self.interval = [0,0] # On the assumption that the first and second gcode command will allways be unique from eachother
         self.list_of_intervals = []
@@ -45,7 +45,7 @@ class GCodeExecutor:
         self.move_type = 'idle'
 
         self.robot = _robot
-        self.extruder_tool = _extruder_tool
+        self.tool = tool
 
         # default planar bed
         self.bed_plane_abcd = [0,0,0,0]
@@ -197,22 +197,6 @@ class GCodeExecutor:
         self.number_of_lines = len(self.gcodelines)
         self.find_intervals()
 
-    def convert_per_minute_to_per_second(self,value_per_minute):
-        return value_per_minute/60
-
-    def convert_per_second_to_per_minute(self,value_per_second):
-        return value_per_second*60
-
-    def calculate_difference(self,first_value,second_value):
-        return second_value-first_value
-
-    def calculate_delta_t(self,feedrate,delta_mm):
-        return delta_mm/self.convert_per_minute_to_per_second(feedrate)
-
-    def calculate_max_velocity(self,feedrate):
-        cartesian_max_vel = 1700 #mm/s
-        return self.convert_per_minute_to_per_second(feedrate)/cartesian_max_vel
-
 
     def home_gcode(self,homing_type):
         if homing_type == 'Guiding':
@@ -255,8 +239,8 @@ class GCodeExecutor:
                 m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2]))
                 self.robot.robot.move(m1)
 
-                # Reset data reaction motion
-                d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -5.0, reaction_motion))
+                # Reset data reaction motion, may need to tweek trigger force when extruder is mounted
+                d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -2.0, reaction_motion))
 
                 self.robot.robot.set_dynamic_rel(0.02)
 
@@ -284,8 +268,11 @@ class GCodeExecutor:
             self.bed_points = bed_grid
             self.calculate_bed_surface_plane()
             self.gcode_home_pose_vec = bed_grid[1][1]
+            print(f"Gcode home location: {self.gcode_home_pose_vec}")
         else:
             print("One or more bed points was not found")
+
+        return contact_found
 
     def calculate_bed_surface_plane(self):
         '''
@@ -309,6 +296,7 @@ class GCodeExecutor:
         c = ABxAC[2]
         d = -(a*A[0] + b*A[1] + c*A[2])
         self.bed_plane_abcd = [a,b,c,d]
+        print(f"Bed plane coefficients: {self.bed_plane_abcd}")
 
     def vertical_bed_level_compensation(self,point):
         '''
@@ -320,12 +308,12 @@ class GCodeExecutor:
     def does_model_fit_bed(self):
         # Assumes a Cubic build volume.. Should use actual spherical volume
         # Change home pose to gcode home, checks then the spedific placement after homeing gcode zero
-        if ((self.Xmax[1]+self.robot.gcode_home_pose_vec[0] >= self.robot.radius) 
-            or (self.Xmax[0]+self.robot.gcode_home_pose_vec[0] <= self.robot.base_area) 
-            or (self.Ymax[1]+self.robot.gcode_home_pose_vec[1] >= self.robot.radius) 
-            #or (self.Ymax[0]+self.robot.gcode_home_pose_vec[1] <= self.robot.base_area) 
-            or (self.Zmax[1]+self.robot.gcode_home_pose_vec[2] >= self.robot.height_up) 
-            or (self.Zmax[0]+self.robot.gcode_home_pose_vec[2] <= self.robot.height_down)):
+        if ((self.Xmax[1]+self.gcode_home_pose_vec[0] >= self.robot.radius) 
+            or (self.Xmax[0]+self.gcode_home_pose_vec[0] <= self.robot.base_area) 
+            or (self.Ymax[1]+self.gcode_home_pose_vec[1] >= self.robot.radius) 
+            #or (self.Ymax[0]+self.gcode_home_pose_vec[1] <= self.robot.base_area) 
+            or (self.Zmax[1]+self.gcode_home_pose_vec[2] >= self.robot.height_up) 
+            or (self.Zmax[0]+self.gcode_home_pose_vec[2] <= self.robot.height_down)):
             return False
         else:
             return True
@@ -368,8 +356,20 @@ class GCodeExecutor:
         waypoints = []
 
         for point in range(interval[0],interval[1]+1):
-            waypoints.append(Waypoint(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2])))
+            z_compensation = self.vertical_bed_level_compensation((self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
+            waypoints.append(Waypoint(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)))
         return waypoints
+
+    def make_path(self,interval):
+        num_waypoints = interval[1]+1-interval[0]
+        path_points = []
+
+        for point in range(interval[0],interval[1]+1):
+            z_compensation = self.vertical_bed_level_compensation((self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
+            path_points.append(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation,math.pi/4,0.0,0.0))
+        path = PathMotion(path_points,blend_max_distance=0.002)
+        print(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
+        return path
 
 
     # Blocking action
@@ -377,12 +377,52 @@ class GCodeExecutor:
         command = self.read_command(interval[0])
 
         if command[0] == 'M':
-            print("send to extruder_tool")
-            return 0
+            print("send to tool")
+            if command[1] == 82:
+                print("E absolute")
+            elif command[1] == 83:
+                print("E Relative")
+            elif command[1] == 84:
+                print("Disable motors")
+            elif command[1] == 104:
+                print("Setting hotend temperature")
+                self.tool.set_nozzletemp(self.read_param(interval[0],'S'))
+            elif command[1] == 105:
+                print("Getting nozzle temperature reading")
+                nozzle_temp = self.tool.read_nozzletemp()
+            elif command[1] == 106:
+                print("Set fan speed")
+                self.tool.set_fanspeed(self.read_param(interval[0],'S'))
+            elif command[1] == 107:
+                print("Fan off")
+            elif command[1] == 109:
+                print("Waiting for hotend temperature")
+                if self.read_param(interval[0],'S') != False:
+                    self.tool.set_nozzletemp(self.read_param(interval[0],'S'))
+                    while self.tool.read_nozzletemp() < self.read_param(interval[0],'S')-5:
+                        print(".")
+                        time.sleep(1)
+                elif self.read_param(interval[0],'R') != False:
+                    self.tool.set_nozzletemp(self.read_param(interval[0],'R'))
+                    while self.tool.read_nozzletemp() < self.read_param(interval[0],'R')-5 or self.tool.read_nozzletemp() > self.read_param(interval[0],'R')+5:
+                        print(".")
+                        time.sleep(1)
+                else:
+                    self.tool.set_nozzletemp(0)
+                    while self.tool.read_nozzletemp() > 30: #assumed high ambient temperature
+                        print(".")
+                        time.sleep(1)
+                
+            elif command[1] == 140:
+                print("Set bed temperature")
+            else:
+                print(f"No action for M command number: {command[1]}")
+            #do other stuff
 
         # Reset extruder distance
-        if self.read_param(interval[0],'E') != False and command == 'G92':
-            self.E = self.read_param(interval[0],'E')
+        if command == 'G92':
+            for key in self.gcodelines[interval[0]].params:
+                self.__dict__[key] = self.read_param(interval[0],key)
 
         # Find current / new z-height
         if self.read_param(interval[0],'Z') != False:
@@ -403,29 +443,44 @@ class GCodeExecutor:
             # Find waypoints, trapesoidal movement?
             final_pose = [self.read_param(interval[1],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[1],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]]
 
-            if interval[1]+1-interval[0] > 2: # arbitrary minimum waypoints, Remember to change! (this is going to go well....)
+            if interval[1]+1-interval[0] > 1: # arbitrary minimum waypoints, Remember to change! (this is going to go well....)
                 waypoints = self.make_waypoints(interval)
+                motion = self.make_path(interval)
                 # check bounds?
                 # set extrusion speed
                 # feed waypoints to robot and listen to robot pose
                 input("start waypoint move...")
 
                 self.robot.robot.set_dynamic_rel(0.05)
-                motion = WaypointMotion(waypoints,retrun_when_finished=False)
+
+                #motion = WaypointMotion(waypoints,return_when_finished=False)
                 thread = self.robot.robot.move_async(motion)
+                #self.robot.robot.move(motion)
+                print(type(RobotState))
+                print(RobotState)
+                print(RobotState("robot_mode"))
+                #print(self.robot.read_current_pose())
+                #print(final_pose)
+                print(thread)
 
-                print(self.robot.read_current_pose())
-                print(final_pose)
+                for i in range(3):
+                    print(i)
+                    #print(self.robot.robot.current_pose())
+                    #Configure extruder here based on robot dynamics...
+                    input("Enter to continue...")
 
-                while self.robot.read_current_pose() != final_pose:
-                    time.sleep(1)
-                    print("final pose: ")
-                    print(final_pose)
-                    print("Current pose: ")
-                    print(self.robot.read_current_pose())
+                #motion.finish()
+                thread.join()
+
+            else:
+
 
             if self.read_param(interval[0],'E') != False:
                 self.E = self.read_param(interval[0],'E')
+
+    def visualize_bed_mesh(self):
+        # add plotly of bed mesh here
+        return 0
 
     def visualize_gcode(self):
         z = 0
