@@ -360,14 +360,14 @@ class GCodeExecutor:
             waypoints.append(Waypoint(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)))
         return waypoints
 
-    def make_path(self,interval):
+    def make_path(self,interval,max_blend_distance):
         num_waypoints = interval[1]+1-interval[0]
         path_points = []
 
         for point in range(interval[0],interval[1]+1):
             z_compensation = self.vertical_bed_level_compensation((self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
             path_points.append(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation,math.pi/4,0.0,0.0))
-        path = PathMotion(path_points,blend_max_distance=0.002)
+        path = PathMotion(path_points,blend_max_distance=max_blend_distance)
         print(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
         return path
 
@@ -444,8 +444,9 @@ class GCodeExecutor:
             final_pose = [self.read_param(interval[1],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[1],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]]
 
             if interval[1]+1-interval[0] > 1: # arbitrary minimum waypoints, Remember to change! (this is going to go well....)
-                waypoints = self.make_waypoints(interval)
-                motion = self.make_path(interval)
+                #waypoints = self.make_waypoints(interval)
+                motion = self.make_path(interval,0.002) # PathMotion gives smooth movement compared to WayPointMovement
+
                 # check bounds?
                 # set extrusion speed
                 # feed waypoints to robot and listen to robot pose
@@ -454,8 +455,9 @@ class GCodeExecutor:
                 self.robot.robot.set_dynamic_rel(0.05)
 
                 #motion = WaypointMotion(waypoints,return_when_finished=False)
-                thread = self.robot.robot.move_async(motion)
+                thread = self.robot.robot.move_async(motion) # Just starts move in a thread with some initialization
                 #self.robot.robot.move(motion)
+
                 print(type(RobotState))
                 print(RobotState)
                 print(RobotState("robot_mode"))
@@ -465,15 +467,12 @@ class GCodeExecutor:
 
                 for i in range(3):
                     print(i)
-                    #print(self.robot.robot.current_pose())
+                    print(self.robot.robot.current_pose()) # This gives an error when robot is threaded...
                     #Configure extruder here based on robot dynamics...
                     input("Enter to continue...")
 
                 #motion.finish()
                 thread.join()
-
-            else:
-
 
             if self.read_param(interval[0],'E') != False:
                 self.E = self.read_param(interval[0],'E')
