@@ -379,6 +379,7 @@ class GCodeExecutor:
 
         # Handle different M (machine) commands
         if command[0] == 'M':
+            #pass # to skip M commands
             print("send to tool")
             if command[1] == 82:
                 print("E absolute")
@@ -419,7 +420,6 @@ class GCodeExecutor:
                 print("Set bed temperature")
             else:
                 print(f"No action for M command number: {command[1]}")
-            #do other stuff
 
         # Find current / new z-height %% Implement for each line instead of start of interval, ignored if no new value anyway %%
         if self.read_param(interval[0],'Z') != False:
@@ -429,7 +429,7 @@ class GCodeExecutor:
         if self.read_param(interval[0],'F') != False:
             self.F = self.read_param(interval[0],'F')
 
-        if command == 'G0': # single point, change to path for potential 2+ G0 commands
+        if command == 'G0':
             # Stop extrusion and move to target
             self.tool.set_feedrate(0) # just incase
             if self.read_param(interval[0],'X') != False or self.read_param(interval[0],'Y') != False or self.read_param(interval[0],'Z') != False:
@@ -437,49 +437,49 @@ class GCodeExecutor:
                 self.robot.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
 
                 input("continue? lin move...")
-                self.robot.robot.move(motion)
+                thread = self.robot.robot.move_async(motion)
+                thread.join()
 
 
         elif command == 'G1':
             if self.read_param(interval[0],'X') != False or self.read_param(interval[0],'Y') != False or self.read_param(interval[0],'Z') != False:
-                if interval[1]+1-interval[0] > 0: # arbitrary minimum waypoints, Remember to change! (this is going to go well....)
-                    # Make path trajectory
-                    motion = self.make_path(interval,0.002) # PathMotion gives smooth movement compared to WayPointMovement
+                # Make path trajectory
+                motion = self.make_path(interval,0.002) # PathMotion gives smooth movement compared to WayPointMovement
 
-                    # set dynamic rel and relative max velocity based on feedrate
-                    self.robot.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
+                # set dynamic rel and relative max velocity based on feedrate
+                self.robot.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
 
-                    # Accept check
-                    input("start waypoint move...")
+                # Accept check
+                input("Press enter to start waypoint move...")
 
-                    # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
-                    if self.read_param(interval[1],'E') != False:
-                        self.tool.set_feedrate(self.F)
+                # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
+                if self.read_param(interval[1],'E') != False:
+                    self.tool.set_feedrate(self.F)
 
-                    # feed path motion to robot and move using a separate thread
-                    thread = self.robot.robot.move_async(motion) # Just starts move in a thread with some initialization
+                # feed path motion to robot and move using a separate thread
+                thread = self.robot.robot.move_async(motion) # Just starts move in a thread with some initialization
 
-                    # testing stuff
-                    # print(type(RobotState))
-                    # print(RobotState)
-                    # print(RobotState("robot_mode"))
-                    # #print(self.robot.read_current_pose())
-                    # #print(final_pose)
-                    # print(thread)
+                # testing stuff
+                # print(type(RobotState))
+                # print(RobotState)
+                # print(RobotState("robot_mode"))
+                # #print(self.robot.read_current_pose())
+                # #print(final_pose)
+                # print(thread)
 
-                    # for i in range(3):
-                    #     print(i)
-                    #     #print(self.robot.robot.current_pose()) # This gives an error when robot is threaded...
-                    #     #Configure extruder here based on robot dynamics...
-                    #     #Is what i would have done if robot state was available...
-                    #     input("Enter to continue...")
+                # for i in range(3):
+                #     print(i)
+                #     #print(self.robot.robot.current_pose()) # This gives an error when robot is threaded...
+                #     #Configure extruder here based on robot dynamics...
+                #     #Is what i would have done if robot state was available...
+                #     input("Enter to continue...")
 
-                    print("waiting on thread to finish motion")
-                    # Wait here for path motion to finish and join the thread
-                    thread.join()
+                print("waiting on thread to finish motion")
+                # Wait here for path motion to finish and join the thread
+                thread.join()
 
-                    # Thread done aka move done aka stop extrusion immidiately
-                    self.tool.set_feedrate(0)
+                # Thread done aka move done aka stop extrusion immidiately
+                self.tool.set_feedrate(0)
 
             elif self.read_param(interval[0],'E') != False:
                 # Target extrusion distance and time elapsed at given feedrate
@@ -523,6 +523,8 @@ class GCodeExecutor:
         y_coordinates = []
         z_coordinates = []
         colors = []
+
+        print("May have issues with 1 million+ points...")
 
         for element in self.list_of_intervals:
             if self.read_param(element[0],'E') != False:
