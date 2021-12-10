@@ -33,7 +33,7 @@ class GCodeExecutor:
     -----------
 
     '''
-    def __init__(self,_filename,_robot,tool):
+    def __init__(self,_filename,_robot,_tool):
         self.filename = _filename
         self.interval = [0,0] # On the assumption that the first and second gcode command will allways be unique from eachother
         self.list_of_intervals = []
@@ -45,7 +45,7 @@ class GCodeExecutor:
         self.move_type = 'idle'
 
         self.robot = _robot
-        self.tool = tool
+        self.tool = _tool
 
         # default planar bed
         self.bed_plane_abcd = [0,0,0,0]
@@ -131,22 +131,22 @@ class GCodeExecutor:
                 self.set_extremes(self.read_param(line_number,'Z'),'Zmax')
 
             # Find desired interval change condition
-            if self.read_param(line_number,'Z') != False and self.read_param(line_number, 'Z') != self.get_param('Z'):
+            # if self.read_param(line_number,'Z') != False and self.read_param(line_number, 'Z') != self.get_param('Z'):
+            #     interval = [self.interval[1]+1,line_number-1]
+            #     if interval[1]<interval[0]:
+            #         interval = [line_number,line_number]
+            #     self.set_param(line_number,'Z')
+            #     break
+            if self.read_command(line_number) != self.read_command(self.interval[1]+1):
                 interval = [self.interval[1]+1,line_number-1]
                 if interval[1]<interval[0]:
                     interval = [line_number,line_number]
-                self.set_param(line_number,'Z')
                 break
             elif self.read_param(line_number,'E') != False and self.read_param(line_number,'E') < self.get_param('E'):
                 interval = [self.interval[1]+1,line_number-1]
                 if interval[1]<interval[0]:
                     interval = [line_number,line_number]
                 self.set_param(line_number,'E')
-                break
-            elif self.read_command(line_number) != self.read_command(self.interval[1]+1):
-                interval = [self.interval[1]+1,line_number-1]
-                if interval[1]<interval[0]:
-                    interval = [line_number,line_number]
                 break
             elif self.read_param(line_number,'F') != False and self.read_param(line_number,'F') != self.get_param('F'): 
             # Check if this is wanted, or append this last x-y line to interval
@@ -165,11 +165,8 @@ class GCodeExecutor:
         self.append_interval()
 
     def find_intervals(self):
-        count = 0
-        while self.number_of_lines > self.interval[1] + 1 and count < 100000:
+        while self.number_of_lines > self.interval[1] + 1:
             self.find_next_interval()
-            count = count + 1
-
         self.current_interval = 1
 
 
@@ -349,33 +346,38 @@ class GCodeExecutor:
         return True
 
     def make_waypoints(self,interval):
-        # Take an interval of movement commands
-        # Calculate trapesoidal movement/velocity to reduce jerk and uphold correct extrusion speed
-        # ?
-        num_waypoints = interval[1]+1-interval[0]
         waypoints = []
-
         for point in range(interval[0],interval[1]+1):
             z_compensation = self.vertical_bed_level_compensation((self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
             waypoints.append(Waypoint(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)))
         return waypoints
 
-    def make_path(self,interval,max_blend_distance):
-        num_waypoints = interval[1]+1-interval[0]
+    def make_path(self,interval,corner_blend_threshold):
         path_points = []
-
         for point in range(interval[0],interval[1]+1):
-            z_compensation = self.vertical_bed_level_compensation((self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
-            path_points.append(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation,math.pi/4,0.0,0.0))
-        path = PathMotion(path_points,blend_max_distance=max_blend_distance)
-        print(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
+            for key in self.gcodelines[point].params:
+                if key == 'E':
+                    pass
+                else:
+                    self.__dict__[key] = self.read_param(point,key)
+            z_compensation = self.vertical_bed_level_compensation((self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
+            path_points.append(Affine(self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation,math.pi/4,0.0,0.0))
+        path = PathMotion(path_points,blend_max_distance=corner_blend_threshold)
         return path
+
+    def target_point(self,point):
+        '''
+        point is an index for desired gcodeline
+        '''
+        z_compensation = self.vertical_bed_level_compensation((self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
+        return self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation
 
 
     # Blocking action
     def run_code_segment(self,interval):
         command = self.read_command(interval[0])
 
+        # Handle different M (machine) commands
         if command[0] == 'M':
             print("send to tool")
             if command[1] == 82:
@@ -419,63 +421,95 @@ class GCodeExecutor:
                 print(f"No action for M command number: {command[1]}")
             #do other stuff
 
-        # Reset extruder distance
-        if command == 'G92':
-            for key in self.gcodelines[interval[0]].params:
-                self.__dict__[key] = self.read_param(interval[0],key)
-
-        # Find current / new z-height
+        # Find current / new z-height %% Implement for each line instead of start of interval, ignored if no new value anyway %%
         if self.read_param(interval[0],'Z') != False:
             self.Z = self.read_param(interval[0],'Z')
 
-        # Find desired feedrate / working speed
+        # Find desired feedrate / working speed / max velocity
         if self.read_param(interval[0],'F') != False:
             self.F = self.read_param(interval[0],'F')
 
-        if command == 'G0':
+        if command == 'G0': # single point, change to path for potential 2+ G0 commands
             # Stop extrusion and move to target
-            if self.read_param(interval[0],'X') != False and self.read_param(interval[0],'Y') != False:
-                print([self.read_param(interval[0],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[0],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]])
+            self.tool.set_feedrate(0) # just incase
+            if self.read_param(interval[0],'X') != False or self.read_param(interval[0],'Y') != False or self.read_param(interval[0],'Z') != False:
+                motion = self.make_path(interval,0.01)
+                self.robot.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
+
                 input("continue? lin move...")
-                self.robot.lin_move_to_point(self.read_param(interval[0],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[0],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2])
+                self.robot.robot.move(motion)
+
 
         elif command == 'G1':
-            # Find waypoints, trapesoidal movement?
-            final_pose = [self.read_param(interval[1],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[1],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]]
+            if self.read_param(interval[0],'X') != False or self.read_param(interval[0],'Y') != False or self.read_param(interval[0],'Z') != False:
+                if interval[1]+1-interval[0] > 0: # arbitrary minimum waypoints, Remember to change! (this is going to go well....)
+                    # Make path trajectory
+                    motion = self.make_path(interval,0.002) # PathMotion gives smooth movement compared to WayPointMovement
 
-            if interval[1]+1-interval[0] > 1: # arbitrary minimum waypoints, Remember to change! (this is going to go well....)
-                #waypoints = self.make_waypoints(interval)
-                motion = self.make_path(interval,0.002) # PathMotion gives smooth movement compared to WayPointMovement
+                    # set dynamic rel and relative max velocity based on feedrate
+                    self.robot.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
 
-                # check bounds?
-                # set extrusion speed
-                # feed waypoints to robot and listen to robot pose
-                input("start waypoint move...")
+                    # Accept check
+                    input("start waypoint move...")
 
-                self.robot.robot.set_dynamic_rel(0.05)
+                    # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
+                    if self.read_param(interval[1],'E') != False:
+                        self.tool.set_feedrate(self.F)
 
-                #motion = WaypointMotion(waypoints,return_when_finished=False)
-                thread = self.robot.robot.move_async(motion) # Just starts move in a thread with some initialization
-                #self.robot.robot.move(motion)
+                    # feed path motion to robot and move using a separate thread
+                    thread = self.robot.robot.move_async(motion) # Just starts move in a thread with some initialization
 
-                print(type(RobotState))
-                print(RobotState)
-                print(RobotState("robot_mode"))
-                #print(self.robot.read_current_pose())
-                #print(final_pose)
-                print(thread)
+                    # testing stuff
+                    # print(type(RobotState))
+                    # print(RobotState)
+                    # print(RobotState("robot_mode"))
+                    # #print(self.robot.read_current_pose())
+                    # #print(final_pose)
+                    # print(thread)
 
-                for i in range(3):
-                    print(i)
-                    print(self.robot.robot.current_pose()) # This gives an error when robot is threaded...
-                    #Configure extruder here based on robot dynamics...
-                    input("Enter to continue...")
+                    # for i in range(3):
+                    #     print(i)
+                    #     #print(self.robot.robot.current_pose()) # This gives an error when robot is threaded...
+                    #     #Configure extruder here based on robot dynamics...
+                    #     #Is what i would have done if robot state was available...
+                    #     input("Enter to continue...")
 
-                #motion.finish()
-                thread.join()
+                    print("waiting on thread to finish motion")
+                    # Wait here for path motion to finish and join the thread
+                    thread.join()
 
-            if self.read_param(interval[0],'E') != False:
+                    # Thread done aka move done aka stop extrusion immidiately
+                    self.tool.set_feedrate(0)
+
+            elif self.read_param(interval[0],'E') != False:
+                # Target extrusion distance and time elapsed at given feedrate
+                target_E = self.read_param(interval[0],'E')
+                sleep_time = self.tool.calculate_delta_t(target_E,self.E,self.F)
+
+                # set retraction/un-retraction feedrate
+                self.tool.set_feedrate(np.sign(sleep_time)*self.F)
+                # Sleep
+                time.sleep(abs(sleep_time))
+                # Stop retraction/un-retraction
+                self.tool.set_feedrate(0)
+
+            if self.read_param(interval[1],'E') != False:
                 self.E = self.read_param(interval[0],'E')
+
+        elif command == 'G21':
+            print("set units to millimeters")
+        elif command == 'G28':
+            print("Auto home")
+        elif command == 'G90':
+            print("use absolute coordinates")
+
+        # Reset extruder/all distances
+        elif command == 'G92':
+            for key in self.gcodelines[interval[0]].params:
+                self.__dict__[key] = self.read_param(interval[0],key)
+
+        else:
+            print(f"No action for G command number: {command[1]}")
 
     def visualize_bed_mesh(self):
         # add plotly of bed mesh here
@@ -518,6 +552,9 @@ class GCodeExecutor:
                         self.X = x
                         self.Y = y
 
+                        if self.read_param(point,'Z') != False:
+                            z = self.read_param(point,'Z')
+
                         if self.read_param(point,'E') > extrusion_distance and self.read_param(point,'E') != False:
                             x_coordinates.append(x * 1000)
                             y_coordinates.append(y * 1000)
@@ -539,6 +576,9 @@ class GCodeExecutor:
 
                         self.X = x
                         self.Y = y
+
+                        if self.read_param(point,'Z') != False:
+                            z = self.read_param(point,'Z')
 
 
         largest_axis = max([self.Xmax[1]-self.Xmax[0],self.Ymax[1]-self.Ymax[0],self.Zmax[1]-self.Zmax[0]])
@@ -575,6 +615,15 @@ class GCodeExecutor:
 
         fig.show()
 
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        # corresponding to 0,0,0 of start of printing
+        self.X = 0
+        self.Y = 0
+        self.Z = 0
+        self.F = 0
+        self.E = 0
 
     def __str__(self):
         return "gcodeexecutor"

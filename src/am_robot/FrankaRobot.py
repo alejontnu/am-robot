@@ -25,6 +25,9 @@ class FrankaRobot:
         # To skip connection (True) when not at robot for testing other functions without connection timeout
 
         self.ip = _host
+        self.max_cart_vel = 1700 # mm/s max cartesian velocity
+        self.max_cart_acc = 13 # mm/s² max cartesian acceleration
+        self.max_cart_jerk = 6500 # mm/s³ max cartesion jerk
 
         if _skip_connection == True:
             print("Skipped trying to connect to robot with IP: " + self.ip)
@@ -68,6 +71,7 @@ class FrankaRobot:
         motion = WaypointMotion(waypoints,return_when_finished=False)
         thread = self.robot.move_async(motion)
         self.robot.move()
+        return motion, thread
 
     def robot_home_move(self):
         self.robot.set_default_behavior()
