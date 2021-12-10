@@ -41,9 +41,9 @@ class FrankaRobot:
                 raise e 
             else:
                 print("Connected to robot in IP: " + self.ip)
-                print(self.robot)
 
                 self.is_connected = True
+                self.gripper = self.robot.get_gripper()
 
         self.radius = 0.855
         self.height_up = 1.190
@@ -62,7 +62,7 @@ class FrankaRobot:
 
     def lin_move_to_point(self,X,Y,Z):
         move = LinearMotion(Affine(X,Y,Z))
-        self.robot.move(move)
+        self.robot.move(self.tool_frame,move)
 
     def follow_waypoints(self,waypoints):
         motion = WaypointMotion(waypoints,return_when_finished=False)
@@ -76,18 +76,18 @@ class FrankaRobot:
         self.robot.recover_from_errors()
 
         # Set acceleration and velocity reduction
-        self.robot_dynamic_rel = 0.2
+        self.robot_dynamic_rel = 0.1
         self.robot.set_dynamic_rel(self.robot_dynamic_rel) # Default 0.1
 
         # Joint motion to set initial configuration
         self.robot.move(JointMotion([0.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
 
         # Define and move to cartesian space
-        self.tool_frame = Affine(z=-0)
-        self.robot_home_pose = Affine(0.500, 0.0, 0.40) # NB not same as auto-home extruder
-        self.robot_home_pose_vec = [0.500,0.0,0.40]
+        self.tool_frame = Affine(0.0,0.0,0.1033,0.0,-math.pi/4,0.0)
+        self.robot_home_pose = Affine(0.500, 0.0, 0.20) # NB not same as auto-home extruder
+        self.robot_home_pose_vec = [0.500,0.0,0.20]
 
-        #self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
+        self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
 
         self.home_pose = self.read_current_pose()
 

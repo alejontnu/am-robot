@@ -26,12 +26,14 @@ class ExtruderTool:
         self.ser = serial.Serial()
         self.ser.port = self.port
 
-        self.motor_steps_per_revolution = 400
-        self.micro_stepping = 16
-        self.gear_ratio = 3 # From datasheet
-        self.hobb_diameter_mm = 7.3 # From datasheet/manufacturer (effective and should be calibrated)
+        self.motor_steps_per_revolution = 400.0
+        self.micro_stepping = 16.0
+        self.gear_ratio = 3.0 # From datasheet
+        self.hobb_diameter_mm = 7.68 # 7.3 # From datasheet/manufacturer (effective and should be calibrated)
 
         self.steps_per_mm_filament = self.calculate_steps_per_mm()
+
+        #elf.T1 = []
 
 
     def __str__(self):
