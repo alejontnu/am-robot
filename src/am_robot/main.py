@@ -85,6 +85,8 @@ def main():
         # Check bounds for build area
         proceed = executor.is_build_feasible()
 
+        #executor.robot.gripper.clamp(0.005)
+
         # Uses force feedback to determine where n points of the print bed are located
         if proceed:
             if not args.skip_probe:
