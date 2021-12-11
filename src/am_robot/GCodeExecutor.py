@@ -146,6 +146,9 @@ class GCodeExecutor:
                 interval = [self.interval[1]+1,line_number-1]
                 self.set_param(line_number,'E')
                 break
+            # elif self.read_param(line_number-1,'E') != False and self.read_param(line_number,'E') == False:
+            #     interval = [self.interval[1]+1,line_number-1]
+            #     break
             elif self.read_param(line_number,'F') != False and self.read_param(line_number,'F') != self.get_param('F'): 
             # Check if this is wanted, or append this last x-y line to interval
                 self.set_param(line_number,'F')
@@ -215,7 +218,7 @@ class GCodeExecutor:
 
         elif homing_type == 'known':
             print("Set gcode_home to this value. Home point assumed known")
-            self.gcode_home_pose_vec = [0.48,0.0,0.0,math.pi/2,0.0,0.0]
+            self.gcode_home_pose_vec = [0.48,0.0,0.0,-math.pi/3,0.0,0.0]
 
         else:
             print("Failed to home gcode zero... Check RobotMode input")
@@ -236,7 +239,7 @@ class GCodeExecutor:
                 self.robot.robot.set_dynamic_rel(0.1)
                 # Move to probe location
                 m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2]))
-                self.robot.robot.move(m1)
+                self.robot.robot.move(self.robot.tool_frame,m1)
 
                 # Reset data reaction motion, may need to tweek trigger force when extruder is mounted
                 d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -2.0, reaction_motion))
@@ -244,7 +247,7 @@ class GCodeExecutor:
                 self.robot.robot.set_dynamic_rel(0.02)
 
                 # Move slowly towards print bed
-                m2 = LinearRelativeMotion(Affine(0.0,0.0,-0.05))
+                m2 = LinearRelativeMotion(Affine(0.03,0.0,-0.03))
                 self.robot.robot.move(m2, d2)
 
                 # Check if the reaction was triggered
@@ -334,7 +337,7 @@ class GCodeExecutor:
             data = MotionData().with_reaction(Reaction(Measure.ForceXYZNorm > 30.0, reaction_motion))
             motion = LinearMotion(Affine(point[0] + self.robot.robot_home_pose_vec[0],point[1] + self.robot.robot_home_pose_vec[1],point[2]))
 
-            self.robot.robot.move(motion,data)
+            self.robot.robot.move(self.robot.tool_frame,motion,data)
 
             if data.did_break:
                 self.robot.robot.recover_from_errors()
@@ -357,15 +360,19 @@ class GCodeExecutor:
     def make_path(self,interval,corner_blend_threshold):
         path_points = []
         for point in range(interval[0],interval[1]+1):
-            for key in self.gcodelines[point].params:
-                if key == 'E':
-                    pass
-                else:
-                    self.__dict__[key] = self.read_param(point,key)
-            z_compensation = self.vertical_bed_level_compensation((self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
-            print(z_compensation)
-            path_points.append(Affine(self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation))
+            # for key in self.gcodelines[point].params:
+            #     if key == 'E':
+            #         pass
+            #     else:
+            #         self.__dict__[key] = self.read_param(point,key)
+            # z_compensation = self.vertical_bed_level_compensation((self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
+            # print(z_compensation)
+            # path_points.append(Affine(self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation))
+        #path = PathMotion(path_points,blend_max_distance=corner_blend_threshold)
+            z_compensation = self.vertical_bed_level_compensation((self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
+            path_points.append(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation))
         path = PathMotion(path_points,blend_max_distance=corner_blend_threshold)
+        print(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
         return path
 
     def target_point(self,point):
@@ -436,21 +443,26 @@ class GCodeExecutor:
             if command == 'G0':
                 # Stop extrusion and move to target
                 self.tool.set_feedrate(0) # just incase
-                if self.read_param(interval[0],'X') != False or self.read_param(interval[0],'Y') != False or self.read_param(interval[0],'Z') != False:
+                #if self.read_param(interval[0],'X') != False or self.read_param(interval[0],'Y') != False or self.read_param(interval[0],'Z') != False:
+                if self.read_param(interval[0],'X') != False and self.read_param(interval[0],'Y') != False:
                     motion = self.make_path(interval,0.01)
                     self.robot.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
 
                     input("Press enter to start non-extrusion move...")
-                    thread = self.robot.robot.move_async(motion)
-                    thread.join()
+                    self.robot.robot.move(motion)
+
+            # if command == 'G0':
+            #     # Stop extrusion and move to target
+            #     if self.read_param(interval[0],'X') != False and self.read_param(interval[0],'Y') != False:
+            #         print([self.read_param(interval[0],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[0],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]])
+            #         print("linear move commencing")
+            #         self.robot.lin_move_to_point(self.read_param(interval[0],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[0],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2])
 
 
             elif command == 'G1':
                 if (self.read_param(interval[0],'X') != False) or (self.read_param(interval[0],'Y') != False) or (self.read_param(interval[0],'Z') != False):
+
                     # Make path trajectory
-
-                    print(interval)
-
                     motion = self.make_path(interval,0.002) # PathMotion gives smooth movement compared to WayPointMovement
 
                     # set dynamic rel and relative max velocity based on feedrate
@@ -465,21 +477,6 @@ class GCodeExecutor:
 
                     # feed path motion to robot and move using a separate thread
                     thread = self.robot.robot.move_async(motion) # Just starts move in a thread with some initialization
-
-                    # testing stuff
-                    # print(type(RobotState))
-                    # print(RobotState)
-                    # print(RobotState("robot_mode"))
-                    # #print(self.robot.read_current_pose())
-                    # #print(final_pose)
-                    # print(thread)
-
-                    # for i in range(3):
-                    #     print(i)
-                    #     #print(self.robot.robot.current_pose()) # This gives an error when robot is threaded...
-                    #     #Configure extruder here based on robot dynamics...
-                    #     #Is what i would have done if robot state was available...
-                    #     input("Enter to continue...")
 
                     print("waiting on thread to finish motion")
                     # Wait here for path motion to finish and join the thread
@@ -517,6 +514,32 @@ class GCodeExecutor:
 
         else:
             print(f"No action for command: {command}")
+            #do other stuff
+  
+        # elif command == 'G1':
+        #     # Find waypoints, trapesoidal movement?
+        #     final_pose = [self.read_param(interval[1],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[1],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]]
+
+        #     if interval[1]+1-interval[0] > 1: # arbitrary minimum waypoints, Remember to change! (this is going to go well....)
+        #         #waypoints = self.make_waypoints(interval)
+        #         motion = self.make_path(interval,0.002) # PathMotion gives smooth movement compared to WayPointMovement
+
+        #         # check bounds?
+        #         # set extrusion speed
+        #         # feed waypoints to robot and listen to robot pose
+        #         #input("start waypoint move...")
+
+        #         self.robot.robot.set_dynamic_rel(0.05)
+
+        #         #motion = WaypointMotion(waypoints,return_when_finished=False)
+        #         thread = self.robot.robot.move_async(self.robot.tool_frame,motion) # Just starts move in a thread with some initialization
+        #         #self.robot.robot.move(motion)
+
+        #         #motion.finish()
+        #         thread.join()
+
+        #     if self.read_param(interval[0],'E') != False:
+        #         self.E = self.read_param(interval[0],'E')
 
     def visualize_bed_mesh(self):
         # add plotly of bed mesh here
