@@ -99,6 +99,7 @@ def main():
                 time_elapsed_task = time.time()
                 for interval in executor.list_of_intervals:
                     # Blocking function, exits after interval is done:
+                    print(interval)
                     executor.run_code_segment(interval)
 
                 time_elapsed_task = time.time() - time_elapsed_task
