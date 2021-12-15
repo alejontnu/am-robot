@@ -542,7 +542,58 @@ class GCodeExecutor:
         #         self.E = self.read_param(interval[0],'E')
 
     def visualize_bed_mesh(self):
-        # add plotly of bed mesh here
+        try:
+            bed_points = self.bed_points
+        except:
+            print("No bed points found, using default flat 3 x 3 surface")
+            bed_points = [[[0.2,0.2,0.01],[0,0.2,0],[-0.2,0.2,-0.01]],
+                        [[0.2,0,0],[0,0,-0.005],[-0.2,0,-0.015]],
+                        [[0.2,-0.2,-0.01],[0,-0.2,-0.015],[-0.2,-0.2,-0.02]]]
+
+        x_axis = len(bed_points)
+        y_axis = len(bed_points[0])
+
+        x = []
+        y = []
+        z = []
+
+        max_z = bed_points[0][0][2]
+        min_z = bed_points[0][0][2]
+
+        for i in range(y_axis):
+            temp_x = []
+            temp_y = []
+            temp_z = []
+            for j in range(x_axis):
+                temp_x.append(bed_points[i][j][0])
+                temp_y.append(bed_points[i][j][1])
+                temp_z.append(bed_points[i][j][2])
+                if bed_points[i][j][2] > max_z:
+                    max_z = bed_points[i][j][2]
+                if bed_points[i][j][2] < min_z:
+                    min_z = bed_points[i][j][2]
+            x.append(temp_x)
+            y.append(temp_y)
+            z.append(temp_z)
+
+        largest_axis = max([bed_points[0][0][0]-bed_points[-1][-1][0],bed_points[0][0][1]-bed_points[-1][-1][1],max_z-min_z])
+        axis_scale = [(bed_points[0][0][0]-bed_points[-1][-1][0])/largest_axis,(bed_points[0][0][1]-bed_points[-1][-1][1])/largest_axis,(max_z-min_z)/largest_axis]
+        
+        fig = go.Figure(data=[go.Surface(z=z,x=x,y=y)])
+        fig.update_traces(contours_z=dict(show=True, usecolormap=True,
+                                        highlightcolor="limegreen", project_z=True))
+        fig.update_layout(title='Surface flatness of print bed', autosize=False,
+                        scene_camera_eye=dict(x=1.87, y=0.88, z=-0.64),
+                        width=1500, height=1000,
+                        margin=dict(l=65, r=50, b=65, t=90),
+                        scene=dict(
+                            aspectratio = dict( x=axis_scale[0], y=axis_scale[1], z=axis_scale[2] ),
+                            aspectmode = 'manual'
+                        )
+        )
+
+        fig.show()
+
         return 0
 
     def visualize_gcode(self):

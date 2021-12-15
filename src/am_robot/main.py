@@ -67,6 +67,8 @@ def main():
 
     print("Done pre-processing gcode")
 
+    
+
     if args.visualize:
         time_elapsed_task = time.time()
         executor.display()
@@ -96,7 +98,8 @@ def main():
             
             if bed_found:
             # Make a bed mesh for knowing the surface flatness and location of build area
-                #executor.construct_bed_mesh()
+                if args.visualize:
+                    executor.visualize_bed_mesh()
                 
                 time_elapsed_task = time.time()
                 for interval in executor.list_of_intervals:
