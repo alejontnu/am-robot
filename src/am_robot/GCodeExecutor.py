@@ -583,8 +583,8 @@ class GCodeExecutor:
         fig.update_traces(contours_z=dict(show=True, usecolormap=True,
                                         highlightcolor="limegreen", project_z=True))
         fig.update_layout(title='Surface flatness of print bed', autosize=False,
-                        scene_camera_eye=dict(x=1.87, y=0.88, z=-0.64),
-                        width=1500, height=1000,
+                        scene_camera_eye=dict(x=0.0, y=0.0, z=1.50),
+                        width=1000, height=1000,
                         margin=dict(l=65, r=50, b=65, t=90),
                         scene=dict(
                             aspectratio = dict( x=axis_scale[0], y=axis_scale[1], z=axis_scale[2] ),
@@ -593,6 +593,8 @@ class GCodeExecutor:
         )
 
         fig.show()
+
+        #fig.write_image('bedmesh.eps',width=1920,height=1080)
 
         return 0
 

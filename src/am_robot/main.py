@@ -67,8 +67,6 @@ def main():
 
     print("Done pre-processing gcode")
 
-    
-
     if args.visualize:
         time_elapsed_task = time.time()
         executor.display()
