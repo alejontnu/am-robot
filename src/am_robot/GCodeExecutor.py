@@ -238,8 +238,9 @@ class GCodeExecutor:
         '''
         self.robot.robot.set_dynamic_rel(0.1)
         z_compensation = self.vertical_bed_level_compensation((x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2]))
-        motion = LinearMotion(x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2] + z_compensation)
-        self.robot.robot.move(self.robot.tool_frame,motion)
+        motion = LinearMotion(Affine(x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2] + z_compensation,b=-self.robot.tool_frame_vector[4]))
+        self.robot.robot.move(Affine(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion)
+        self.robot.robot.recover_from_errors()
 
     def probe_bed(self):
         probe_locations_xy = [[[0.1,0.1],[0,0.1],[-0.1,0.1]],[[0.1,0],[0,0],[-0.1,0]],[[0.1,-0.1],[0,-0.1],[-0.1,-0.1]]] # relative to ghome_gcode
@@ -256,8 +257,8 @@ class GCodeExecutor:
 
                 self.robot.robot.set_dynamic_rel(0.1)
                 # Move to probe location
-                m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2]))
-                self.robot.robot.move(self.robot.tool_frame,m1)
+                m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2],b=-self.robot.tool_frame_vector[4]))
+                self.robot.robot.move(Affine(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),m1)
 
                 # Reset data reaction motion, may need to tweek trigger force when extruder is mounted
                 d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -2.0, reaction_motion))
@@ -265,7 +266,7 @@ class GCodeExecutor:
                 self.robot.robot.set_dynamic_rel(0.02)
 
                 # Move slowly towards print bed
-                m2 = LinearRelativeMotion(Affine(0.07,0.0,-0.07))
+                m2 = LinearRelativeMotion(Affine(0.04,0.0,-0.04))
                 self.robot.robot.move(m2, d2)
 
                 # Check if the reaction was triggered
@@ -284,6 +285,7 @@ class GCodeExecutor:
                     print(f"Did not hit anything for probe location x: {axis1}, y: {axis2}")
                     contact_found = False
 
+
         if contact_found:
             self.bed_points = bed_grid
             self.calculate_bed_surface_plane()
@@ -291,6 +293,8 @@ class GCodeExecutor:
             print(f"Gcode home location: {self.gcode_home_pose_vec}")
         else:
             print("One or more bed points was not found")
+
+        self.robot.robot.recover_from_errors()
 
         return contact_found
 
@@ -388,7 +392,7 @@ class GCodeExecutor:
             # path_points.append(Affine(self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation))
         #path = PathMotion(path_points,blend_max_distance=corner_blend_threshold)
             z_compensation = self.vertical_bed_level_compensation((self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
-            path_points.append(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation))
+            path_points.append(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation,b=-self.robot.tool_frame_vector[4]))
         path = PathMotion(path_points,blend_max_distance=corner_blend_threshold)
         print(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
         return path
@@ -404,7 +408,7 @@ class GCodeExecutor:
     # Blocking action
     def run_code_segment(self,interval):
         command = self.read_command(interval[0])
-        print(command[0])
+        print(command)
         # Handle different M (machine) commands
         if command[0] == 'M':
             print("send to tool")
@@ -467,7 +471,7 @@ class GCodeExecutor:
                     self.robot.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
 
                     input("Press enter to start non-extrusion move...")
-                    self.robot.robot.move(motion)
+                    self.robot.robot.move(Affine(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion)
 
             # if command == 'G0':
             #     # Stop extrusion and move to target
@@ -499,7 +503,7 @@ class GCodeExecutor:
                         self.tool.set_feedrate(self.F)
 
                     # feed path motion to robot and move using a separate thread
-                    thread = self.robot.robot.move_async(motion) # Just starts move in a thread with some initialization
+                    thread = self.robot.robot.move_async(Affine(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion) # Just starts move in a thread with some initialization
 
                     print("waiting on thread to finish motion")
                     # Wait here for path motion to finish and join the thread

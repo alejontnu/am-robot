@@ -55,6 +55,7 @@ def main():
     parser.add_argument('--visualize', default=False, type=bool, help='Visualize the given Gcode as a 3D plot. Skips any hardware connection precess')
     parser.add_argument('--skip_connection', default=False, type=bool, help='If True, skips the connection to robot. For testing out-of-lab. Alse defaults too True if visualize is True')
     parser.add_argument('--skip_probe',default=False,type=bool,help='If True, skips the bed probing step')
+    parser.add_argument('--skip_segments',default=False,type=bool)
     args = parser.parse_args()
 
     time_elapsed_task = time.time()
@@ -94,10 +95,11 @@ def main():
             else:
                 bed_found = True
             
-            if bed_found:
+            if bed_found and not args.skip_segments:
             # Make a bed mesh for knowing the surface flatness and location of build area
                 if args.visualize:
                     executor.visualize_bed_mesh()
+                    input("When happy with bed mesh press enter...")
                 
                 time_elapsed_task = time.time()
                 for interval in executor.list_of_intervals:
