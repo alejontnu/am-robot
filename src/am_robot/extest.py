@@ -22,7 +22,7 @@ def main():
 
 	read_serial(ser)
 	set_nozzletemp(40.0,ser)
-	set_feedrate(feedrate_to_motor_frequency(0),ser)
+	set_feedrate(feedrate_to_motor_frequency(10),ser)
 
 	for i in range(10):
 		read_serial(ser)

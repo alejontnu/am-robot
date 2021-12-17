@@ -23,8 +23,7 @@ class ExtruderTool:
         self.nozzle_diameter = _nozzle_diameter
         self.T_tool = _tool_transformation
 
-        self.ser = serial.Serial()
-        self.ser.port = self.port
+        self.ser = serial.Serial(self.port)
 
         self.motor_steps_per_revolution = 400.0
         self.micro_stepping = 16.0
@@ -35,6 +34,8 @@ class ExtruderTool:
 
         #elf.T1 = []
 
+    def disconnect(self):
+        self.ser.close()
 
     def __str__(self):
         return "ToolType = "+str(self.tooltype)
@@ -48,12 +49,10 @@ class ExtruderTool:
         feedrate: float
             feedrate in mm/min
         '''
-        self.ser.open()
         feedrate = self.convert_per_minute_to_per_second(feedrate)
         motor_frequency = self.feedrate_to_motor_frequency(feedrate)
         packed = struct.pack('f',motor_frequency)
         self.ser.write(b'X'+packed)# + 4 bytes of number
-        self.ser.close()
 
     def set_nozzletemp(self,temperature):
         '''
@@ -64,18 +63,14 @@ class ExtruderTool:
         temperature: float
             temperature in degree celsius
         '''
-        self.ser.open()
         packed = struct.pack('f',temperature)
         self.ser.write(b'H'+packed) # + 4 bytes of number
-        self.ser.close()
 
     def blink_led(self):
         '''
         Blink the arduino led once
         '''
-        self.ser.open()
         self.ser.write(b'B')
-        self.ser.close()
 
     def set_fanspeed(self,speed):
         # not implemented
@@ -89,11 +84,9 @@ class ExtruderTool:
         '''
         Read and return temperature of hotend in Celsius
         '''
-        self.ser.open()
         self.ser.write(b'T')
         b = self.ser.read(5)
-        self.ser.close()
-        
+
         letter = b[0]
 
         if letter == 84:
@@ -102,15 +95,14 @@ class ExtruderTool:
             return temperature
         else:
             print("Value other than T read. Ignoring...")
+            return self.read_temperature()
 
     def read_extrusion_speed(self):
         '''
         Read and return extrusion rate in mm/s
         '''
-        self.ser.open()
         self.ser.write(b'E')
         b = self.ser.read(5)
-        self.ser.close()
 
         letter = b[0]
 
@@ -126,17 +118,12 @@ class ExtruderTool:
         '''
         Enable periodic updates from arduino. Updates include temperature readout and extrusion rate
         '''
-        self.ser.open()
         self.ser.write(b'Y')
-        self.ser.close()
-
     def disable_periodic_updates(self):
         '''
         Disable periodic updates from arduino.
         '''
-        self.ser.open()
         self.ser.write(b'N')
-        self.ser.close()
 
     def feedrate_to_motor_frequency(self,feedrate):
         '''

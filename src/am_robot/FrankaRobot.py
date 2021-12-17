@@ -83,21 +83,32 @@ class FrankaRobot:
         self.robot_dynamic_rel = 0.1
         self.robot.set_dynamic_rel(self.robot_dynamic_rel) # Default 0.1
 
-        # Joint motion to set initial configuration
-        self.robot.move(JointMotion([0.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
-
-        # Define and move to cartesian space
+        # Defining tool_frame
         self.tool_frame = Affine(-0.03414,-0.0111,-0.1033,0.0,-math.pi/4,0.0)
-        self.tool_frame_vector = [-0.03414,-0.0111,-0.1033, 0.0, -math.pi/4, 0.0]
+        self.tool_frame_vector = [-0.03414,-0.0111,-0.1033, 0.0,-math.pi/4,0.0]
 
-        self.tool_frame = Affine(0.0,0.0,0.0,0.0, 0,0,0.0)
-        self.tool_frame_vector = [0.0,0.0,0.0, 0.0, 0.0, 0.0]
+        #self.tool_frame = Affine(0.0,0.0,0.0,0.0, 0,0,0.0)
+        #self.tool_frame_vector = [0.0,0.0,0.0, 0.0, 0.0, 0.0]
 
+        using_forward = True
 
-        self.robot_home_pose = Affine(0.500, 0.0, 0.05) # NB not same as auto-home extruder
-        self.robot_home_pose_vec = [0.500,0.0,0.05]
+        if using_forward: # printing in front of robot in x direction
+            # Joint motion to set initial configuration
+            self.robot.move(JointMotion([0.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
 
-        self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
+            self.robot_home_pose = Affine(0.300, 0.0, 0.05) # NB not same as auto-home extruder
+            self.robot_home_pose_vec = [0.300,0.0,0.05]
+
+            self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
+
+        else:
+            self.robot.move(JointMotion([-math.pi/2.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
+
+            self.robot_home_pose = Affine(0.0, -0.450, 0.05) # NB not same as auto-home extruder
+            self.robot_home_pose_vec = [0.0,0.-0.450,0.05]
+            
+            self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
+        
 
         self.home_pose = self.read_current_pose()
 

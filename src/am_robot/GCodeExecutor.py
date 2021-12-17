@@ -261,12 +261,13 @@ class GCodeExecutor:
                 self.robot.robot.move(Affine(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),m1)
 
                 # Reset data reaction motion, may need to tweek trigger force when extruder is mounted
-                d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -2.0, reaction_motion))
+                d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -2.0))
 
                 self.robot.robot.set_dynamic_rel(0.02)
 
                 # Move slowly towards print bed
                 m2 = LinearRelativeMotion(Affine(0.04,0.0,-0.04))
+                #m2 = LinearRelativeMotion(Affine(-0.04,0.0,-0.04))
                 self.robot.robot.move(m2, d2)
 
                 # Check if the reaction was triggered
@@ -278,7 +279,6 @@ class GCodeExecutor:
                     current_pose = self.robot.read_current_pose()
                     vector_pose = current_pose.vector()
                     probe_point = vector_pose[0:3]
-                    probe_point[2] = probe_point[2] - 0.01 # correcting for moving 1 cm up after contact
                     bed_grid[axis1][axis2] = probe_point
 
                 elif not d2.did_break:
@@ -421,9 +421,9 @@ class GCodeExecutor:
             elif command == 'M104':
                 print("Setting hotend temperature")
                 self.tool.set_nozzletemp(self.read_param(interval[0],'S'))
-            elif command == 'M105':
+            elif command == 'M1055':
                 print("Getting nozzle temperature reading")
-                nozzle_temp = self.tool.read_temperature()
+                print(self.tool.read_temperature())
             elif command == 'M106':
                 print("Set fan speed")
                 self.tool.set_fanspeed(self.read_param(interval[0],'S'))
@@ -484,11 +484,6 @@ class GCodeExecutor:
             elif command == 'G1':
                 if (self.read_param(interval[0],'X') != False) or (self.read_param(interval[0],'Y') != False) or (self.read_param(interval[0],'Z') != False):
 
-                    print("g1 motion. xyz is:")
-                    print(self.X)
-                    print(self.Y)
-                    print(self.Z)
-
                     # Make path trajectory
                     motion = self.make_path(interval,0.002) # PathMotion gives smooth movement compared to WayPointMovement
 
@@ -498,9 +493,11 @@ class GCodeExecutor:
                     # Accept check
                     input("Press enter to start extrusion move move...")
 
+                    start_time = time.time()
+
                     # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
                     if self.read_param(interval[0],'E') != False:
-                        self.tool.set_feedrate(self.F)
+                        self.tool.set_feedrate(self.F/16.0)
 
                     # feed path motion to robot and move using a separate thread
                     thread = self.robot.robot.move_async(Affine(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion) # Just starts move in a thread with some initialization
@@ -508,6 +505,10 @@ class GCodeExecutor:
                     print("waiting on thread to finish motion")
                     # Wait here for path motion to finish and join the thread
                     thread.join()
+
+                    end_time = time.time()
+                    print("path time elapsed:")
+                    print(end_time - start_time)
 
                     # Thread done aka move done aka stop extrusion immidiately
                     self.tool.set_feedrate(0)
@@ -518,7 +519,7 @@ class GCodeExecutor:
                     sleep_time = self.tool.calculate_delta_t(target_E,self.E,self.F)
 
                     # set retraction/un-retraction feedrate
-                    self.tool.set_feedrate(np.sign(sleep_time)*self.F)
+                    self.tool.set_feedrate(np.sign(sleep_time)*self.F/16.0)
                     # Sleep
                     time.sleep(abs(sleep_time))
                     # Stop retraction/un-retraction
@@ -635,7 +636,7 @@ class GCodeExecutor:
 
         fig.show()
 
-        #fig.write_image('bedmesh.eps',width=1920,height=1080)
+        fig.write_image('bedmesh.eps',width=1920,height=1080)
 
         return 0
 

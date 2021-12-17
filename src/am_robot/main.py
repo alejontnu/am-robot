@@ -84,8 +84,8 @@ def main():
         executor.home_gcode(args.home_mode)
         
         # Check bounds for build area
-        proceed = executor.is_build_feasible()
-
+        #proceed = executor.is_build_feasible()
+        proceed = True
         #executor.robot.gripper.clamp(0.005)
 
         # Uses force feedback to determine where n points of the print bed are located
@@ -117,6 +117,8 @@ def main():
 
     print(f"Task done in {time_elapsed_task:.5f}s")
     print(f"Total time elapsed: {time_elapsed_total:.5f}s")
+
+    executor.tool.disconnect()
 
 if __name__ == '__main__':
     main()
