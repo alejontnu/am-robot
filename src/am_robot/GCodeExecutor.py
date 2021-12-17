@@ -108,6 +108,10 @@ class GCodeExecutor:
         except:
             self.__dict__[extreme] = [param,param]
 
+    def set_params(self,line_number):
+        for key in self.gcodelines[line_number].params:
+            self.__dict__[key] = self.read_param(line_number,key)
+
 
     # Find the next instance of retraction (NB may be 0mm retraction)
     def find_next_interval(self):
@@ -131,6 +135,8 @@ class GCodeExecutor:
                 self.set_extremes(self.read_param(line_number,'Y'),'Ymax')
             if self.read_param(line_number,'Z') != False:
                 self.set_extremes(self.read_param(line_number,'Z'),'Zmax')
+            if self.read_param(line_number,'F') != False:
+                self.set_extremes(self.read_param(line_number,'F'),'Fmax')
 
             # Find desired interval change condition
             # if self.read_param(line_number,'Z') != False and self.read_param(line_number, 'Z') != self.get_param('Z'):
@@ -144,7 +150,6 @@ class GCodeExecutor:
                 break
             elif self.read_param(line_number,'E') != False and self.read_param(line_number,'E') < self.get_param('E'):
                 interval = [self.interval[1]+1,line_number-1]
-                self.set_param(line_number,'E')
                 break
             # elif self.read_param(line_number-1,'E') != False and self.read_param(line_number,'E') == False:
             #     interval = [self.interval[1]+1,line_number-1]
@@ -152,19 +157,22 @@ class GCodeExecutor:
             elif self.read_param(line_number,'F') != False and self.read_param(line_number,'F') != self.get_param('F'): 
             # Check if this is wanted, or append this last x-y line to interval
                 self.set_param(line_number,'F')
-                self.set_extremes(self.F,'Fmax')
-                nr_keys = 0
-                for key in self.gcodelines[line_number].params:
-                    nr_keys = nr_keys + 1
-                    if nr_keys > 1:
-                        interval = [self.interval[1]+1,line_number-1]
-                        break
+                # Unsure if i need this check keys
+                # nr_keys = 0
+                # for key in self.gcodelines[line_number].params:
+                #     nr_keys = nr_keys + 1
+                #     if nr_keys > 1:
+                interval = [self.interval[1]+1,line_number-1]
+                #         break
+                break
             else:
                 # Typically when the next line is just another X-Y coordinate
+                self.set_params(line_number)
                 line_number = line_number + 1
 
         if interval[1] < interval[0]:
             interval = [line_number,line_number]
+            self.set_params(line_number)
 
         self.set_interval(interval)
         self.append_interval()
@@ -173,6 +181,7 @@ class GCodeExecutor:
         while self.number_of_lines > self.interval[1] + 1:
             self.find_next_interval()
         self.current_interval = 1
+        self.reset_parameters()
 
 
     def load_gcode(self):
@@ -202,7 +211,7 @@ class GCodeExecutor:
 
     def home_gcode(self,homing_type):
         if homing_type == 'Guiding':
-            self.robot.robot_home_move()
+            self.robot.robot_init_move()
 
             print("INFO: To enter guiding mode, EMERGENCY STOP button needs to be pressed DOWN and the robot light should be continuously WHITE!")
             print("After positioning robot, open the EMERGENCY STOP button to its UP position! The robot should the have BLUE lights")
@@ -222,6 +231,15 @@ class GCodeExecutor:
 
         else:
             print("Failed to home gcode zero... Check RobotMode input")
+
+    def move_to_home(self,x,y,z):
+        '''
+        Move to saved home location of gcode
+        '''
+        self.robot.robot.set_dynamic_rel(0.1)
+        z_compensation = self.vertical_bed_level_compensation((x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2]))
+        motion = LinearMotion(x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2] + z_compensation)
+        self.robot.robot.move(self.robot.tool_frame,motion)
 
     def probe_bed(self):
         probe_locations_xy = [[[0.1,0.1],[0,0.1],[-0.1,0.1]],[[0.1,0],[0,0],[-0.1,0]],[[0.1,-0.1],[0,-0.1],[-0.1,-0.1]]] # relative to ghome_gcode
@@ -247,7 +265,7 @@ class GCodeExecutor:
                 self.robot.robot.set_dynamic_rel(0.02)
 
                 # Move slowly towards print bed
-                m2 = LinearRelativeMotion(Affine(0.03,0.0,-0.03))
+                m2 = LinearRelativeMotion(Affine(0.07,0.0,-0.07))
                 self.robot.robot.move(m2, d2)
 
                 # Check if the reaction was triggered
@@ -406,7 +424,7 @@ class GCodeExecutor:
                 print("Set fan speed")
                 self.tool.set_fanspeed(self.read_param(interval[0],'S'))
             elif command == 'M107':
-                print("Fan off")
+                print("Fan off - Not implemented")
             elif command == 'M1095':
                 print("Waiting for hotend temperature")
                 if self.read_param(interval[0],'S') != False:
@@ -462,6 +480,11 @@ class GCodeExecutor:
             elif command == 'G1':
                 if (self.read_param(interval[0],'X') != False) or (self.read_param(interval[0],'Y') != False) or (self.read_param(interval[0],'Z') != False):
 
+                    print("g1 motion. xyz is:")
+                    print(self.X)
+                    print(self.Y)
+                    print(self.Z)
+
                     # Make path trajectory
                     motion = self.make_path(interval,0.002) # PathMotion gives smooth movement compared to WayPointMovement
 
@@ -472,7 +495,7 @@ class GCodeExecutor:
                     input("Press enter to start extrusion move move...")
 
                     # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
-                    if self.read_param(interval[1],'E') != False:
+                    if self.read_param(interval[0],'E') != False:
                         self.tool.set_feedrate(self.F)
 
                     # feed path motion to robot and move using a separate thread
@@ -497,13 +520,23 @@ class GCodeExecutor:
                     # Stop retraction/un-retraction
                     self.tool.set_feedrate(0)
 
-                if self.read_param(interval[1],'E') != False:
-                    self.E = self.read_param(interval[0],'E')
+                self.set_params(interval[1])
 
             elif command == 'G21':
                 print("set units to millimeters")
             elif command == 'G28':
                 print("Auto home")
+                x = 0
+                y = 0
+                z = 0
+
+                # is params, move slightly above highest print height
+                for key in self.gcodelines[interval[0]].params:
+                    if key == 'Z' or key == 'X' or key == 'Y':
+                        z = self.Zmax[1] + 0.05
+
+                # if not params move to default 0,0,0 start position
+                self.move_to_home(x,y,z)
             elif command == 'G90':
                 print("use absolute coordinates")
 
@@ -564,14 +597,18 @@ class GCodeExecutor:
             temp_x = []
             temp_y = []
             temp_z = []
+
             for j in range(x_axis):
                 temp_x.append(bed_points[i][j][0])
                 temp_y.append(bed_points[i][j][1])
                 temp_z.append(bed_points[i][j][2])
+
                 if bed_points[i][j][2] > max_z:
                     max_z = bed_points[i][j][2]
+
                 if bed_points[i][j][2] < min_z:
                     min_z = bed_points[i][j][2]
+
             x.append(temp_x)
             y.append(temp_y)
             z.append(temp_z)

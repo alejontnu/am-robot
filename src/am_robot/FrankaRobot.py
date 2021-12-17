@@ -73,7 +73,7 @@ class FrankaRobot:
         self.robot.move()
         return motion, thread
 
-    def robot_home_move(self):
+    def robot_init_move(self):
         self.robot.set_default_behavior()
 
         # Recover from errors
