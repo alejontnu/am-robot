@@ -46,7 +46,7 @@ def main():
         add_help=True)
 
     parser.add_argument('--host', default='10.0.0.2', type=str, help='FCI IP of the robot')
-    parser.add_argument('--tool', default='/dev/ttyS5', type=str, help='Serial connection of the tool used')
+    parser.add_argument('--tool', default='/dev/ttyUSB0', type=str, help='Serial connection of the tool used')
     parser.add_argument('--home_mode', default='Guiding', type=str, help='Mode type for homing to (0,0) of Gcode point. Guiding to manually position end-effector nozzle')
     parser.add_argument('--gfile', default='Circle.gcode', type=str, help='Gcode file name')
     parser.add_argument('--t_tool', default=[0,0,-0.1], type=list, help='Translation due to Tool as [x,y,z]')

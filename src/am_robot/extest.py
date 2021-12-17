@@ -16,13 +16,13 @@ def main():
 
 
 	#ser = serial.Serial('/dev/ttyS5',9600,timeout=1,parity='N',rtscts=1)
-	ser = serial.Serial('/dev/ttyS5')#,9600,timeout=1,parity='N',rtscts=1)
-
+	#ser = serial.Serial('/dev/ttyS5')#,9600,timeout=1,parity='N',rtscts=1)
+	ser = serial.Serial('/dev/ttyUSB0')
 
 
 	read_serial(ser)
 	set_nozzletemp(40.0,ser)
-	set_feedrate(feedrate_to_motor_frequency(10),ser)
+	set_feedrate(feedrate_to_motor_frequency(0),ser)
 
 	for i in range(10):
 		read_serial(ser)
