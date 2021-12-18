@@ -1,6 +1,7 @@
 import serial
 import math
 import struct
+import time
 
 class ExtruderTool:
     '''
@@ -84,18 +85,22 @@ class ExtruderTool:
         '''
         Read and return temperature of hotend in Celsius
         '''
-        self.ser.write(b'T')
-        b = self.ser.read(5)
+        read_temp = True
+        while read_temp:
+            #self.ser.write(b'T')
+            b = self.ser.read(5)
 
-        letter = b[0]
+            letter = b[0]
 
-        if letter == 84:
-            [temperature] = struct.unpack('f',b[1:5])
-            print(f"Temperature is {temperature} degree celsius")
-            return temperature
-        else:
-            print("Value other than T read. Ignoring...")
-            return self.read_temperature()
+            if letter == 84:
+                [temperature] = struct.unpack('f',b[1:5])
+                print(f"Temperature is {temperature} degree celsius")
+                read_temp = False
+                return temperature
+            else:
+                print("Value other than T read. Ignoring...")
+                time.sleep(1)
+        return temperature
 
     def read_extrusion_speed(self):
         '''

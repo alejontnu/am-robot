@@ -84,8 +84,8 @@ class FrankaRobot:
         self.robot.set_dynamic_rel(self.robot_dynamic_rel) # Default 0.1
 
         # Defining tool_frame
-        self.tool_frame = Affine(-0.03414,-0.0111,-0.1033,0.0,-math.pi/4,0.0)
-        self.tool_frame_vector = [-0.03414,-0.0111,-0.1033, 0.0,-math.pi/4,0.0]
+        self.tool_frame = Affine(-0.03414,-0.0111,-0.09119,0.0,-math.pi/4,0.0)
+        self.tool_frame_vector = [-0.03414,-0.0111,-0.09119, 0.0,-math.pi/4,0.0]
 
         #self.tool_frame = Affine(0.0,0.0,0.0,0.0, 0,0,0.0)
         #self.tool_frame_vector = [0.0,0.0,0.0, 0.0, 0.0, 0.0]
@@ -96,8 +96,8 @@ class FrankaRobot:
             # Joint motion to set initial configuration
             self.robot.move(JointMotion([0.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
 
-            self.robot_home_pose = Affine(0.300, 0.0, 0.05) # NB not same as auto-home extruder
-            self.robot_home_pose_vec = [0.300,0.0,0.05]
+            self.robot_home_pose = Affine(0.250, 0.0, 0.0) # NB not same as auto-home extruder
+            self.robot_home_pose_vec = [0.250,0.0,0.0]
 
             self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
 

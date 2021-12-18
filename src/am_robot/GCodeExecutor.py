@@ -219,6 +219,10 @@ class GCodeExecutor:
 
             self.gcode_home_pose = self.robot.read_current_pose()
             self.gcode_home_pose_vec = self.gcode_home_pose.vector()
+            for i in range(3):
+                self.gcode_home_pose_vec[i] = self.gcode_home_pose_vec[i] + self.robot.tool_frame_vector[i] + 0.0015
+
+            print(self.gcode_home_pose_vec)
 
             # Can potentially add collision detection here to further improve home point. 
             # But new (0,0) point can be chosen from mid point of bed probing afterwards
@@ -238,12 +242,12 @@ class GCodeExecutor:
         '''
         self.robot.robot.set_dynamic_rel(0.1)
         z_compensation = self.vertical_bed_level_compensation((x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2]))
-        motion = LinearMotion(Affine(x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2] + z_compensation,b=-self.robot.tool_frame_vector[4]))
-        self.robot.robot.move(Affine(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion)
+        motion = LinearMotion(Affine(x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2] + z_compensation))
+        self.robot.robot.move(self.robot.tool_frame,motion)
         self.robot.robot.recover_from_errors()
 
     def probe_bed(self):
-        probe_locations_xy = [[[0.1,0.1],[0,0.1],[-0.1,0.1]],[[0.1,0],[0,0],[-0.1,0]],[[0.1,-0.1],[0,-0.1],[-0.1,-0.1]]] # relative to ghome_gcode
+        probe_locations_xy = [[[0.05,0.05],[0,0.05],[-0.05,0.05]],[[0.05,0],[0,0],[-0.05,0]],[[0.05,-0.05],[0,-0.05],[-0.05,-0.05]]] # relative to ghome_gcode
 
         # Apply reaction motion if the force in negative z-direction is greater than 10N
         reaction_motion = LinearRelativeMotion(Affine(0.0, 0.0, 0.01))  # Move up for 1cm
@@ -257,8 +261,10 @@ class GCodeExecutor:
 
                 self.robot.robot.set_dynamic_rel(0.1)
                 # Move to probe location
-                m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2],b=-self.robot.tool_frame_vector[4]))
-                self.robot.robot.move(Affine(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),m1)
+                #m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2],b=-self.robot.tool_frame_vector[4]))
+                #self.robot.robot.move(Affine(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),m1)
+                m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2]+0.05))
+                self.robot.robot.move(self.robot.tool_frame,m1)
 
                 # Reset data reaction motion, may need to tweek trigger force when extruder is mounted
                 d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -2.0))
@@ -266,7 +272,7 @@ class GCodeExecutor:
                 self.robot.robot.set_dynamic_rel(0.02)
 
                 # Move slowly towards print bed
-                m2 = LinearRelativeMotion(Affine(0.04,0.0,-0.04))
+                m2 = LinearRelativeMotion(Affine(0.08,0.0,-0.08))
                 #m2 = LinearRelativeMotion(Affine(-0.04,0.0,-0.04))
                 self.robot.robot.move(m2, d2)
 
@@ -290,10 +296,19 @@ class GCodeExecutor:
             self.bed_points = bed_grid
             self.calculate_bed_surface_plane()
             self.gcode_home_pose_vec = bed_grid[1][1]
+            for i in range(3):
+                self.gcode_home_pose_vec[i] = self.gcode_home_pose_vec[i] + self.robot.tool_frame_vector[i]
+                if i == 2:
+                    self.gcode_home_pose_vec[i] = self.gcode_home_pose_vec[i] + 0.01
             print(f"Gcode home location: {self.gcode_home_pose_vec}")
         else:
             print("One or more bed points was not found")
 
+        self.robot.robot.recover_from_errors()
+
+        self.robot.robot.set_dynamic_rel(0.1)
+        m1 = LinearMotion(self.robot.robot_home_pose)
+        self.robot.robot.move(self.robot.tool_frame,m1)
         self.robot.robot.recover_from_errors()
 
         return contact_found
@@ -421,7 +436,7 @@ class GCodeExecutor:
             elif command == 'M104':
                 print("Setting hotend temperature")
                 self.tool.set_nozzletemp(self.read_param(interval[0],'S'))
-            elif command == 'M1055':
+            elif command == 'M105':
                 print("Getting nozzle temperature reading")
                 print(self.tool.read_temperature())
             elif command == 'M106':
@@ -429,7 +444,7 @@ class GCodeExecutor:
                 self.tool.set_fanspeed(self.read_param(interval[0],'S'))
             elif command == 'M107':
                 print("Fan off - Not implemented")
-            elif command == 'M1095':
+            elif command == 'M109':
                 print("Waiting for hotend temperature")
                 if self.read_param(interval[0],'S') != False:
                     self.tool.set_nozzletemp(self.read_param(interval[0],'S'))
@@ -485,19 +500,19 @@ class GCodeExecutor:
                 if (self.read_param(interval[0],'X') != False) or (self.read_param(interval[0],'Y') != False) or (self.read_param(interval[0],'Z') != False):
 
                     # Make path trajectory
-                    motion = self.make_path(interval,0.002) # PathMotion gives smooth movement compared to WayPointMovement
+                    motion = self.make_path(interval,0.003) # PathMotion gives smooth movement compared to WayPointMovement
 
                     # set dynamic rel and relative max velocity based on feedrate
                     self.robot.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
 
                     # Accept check
-                    input("Press enter to start extrusion move move...")
+                    #input("Press enter to start extrusion move move...")
 
                     start_time = time.time()
 
                     # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
                     if self.read_param(interval[0],'E') != False:
-                        self.tool.set_feedrate(self.F/16.0)
+                        self.tool.set_feedrate(self.F/40.0)
 
                     # feed path motion to robot and move using a separate thread
                     thread = self.robot.robot.move_async(Affine(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion) # Just starts move in a thread with some initialization
@@ -519,7 +534,7 @@ class GCodeExecutor:
                     sleep_time = self.tool.calculate_delta_t(target_E,self.E,self.F)
 
                     # set retraction/un-retraction feedrate
-                    self.tool.set_feedrate(np.sign(sleep_time)*self.F/16.0)
+                    self.tool.set_feedrate(np.sign(sleep_time)*self.F/40.0)
                     # Sleep
                     time.sleep(abs(sleep_time))
                     # Stop retraction/un-retraction
@@ -529,19 +544,21 @@ class GCodeExecutor:
 
             elif command == 'G21':
                 print("set units to millimeters")
-            elif command == 'G28':
+            elif command == 'G2855':
                 print("Auto home")
                 x = 0
                 y = 0
                 z = 0
 
                 # is params, move slightly above highest print height
+                nr_keys = 0
                 for key in self.gcodelines[interval[0]].params:
-                    if key == 'Z' or key == 'X' or key == 'Y':
-                        z = self.Zmax[1] + 0.05
+                    nr_keys = nr_keys + 1
+                        
 
-                # if not params move to default 0,0,0 start position
-                self.move_to_home(x,y,z)
+                if nr_keys == 0:
+                    # if not params move to default 0,0,0 start position
+                    self.move_to_home(x,y,z)
             elif command == 'G90':
                 print("use absolute coordinates")
 
@@ -549,6 +566,8 @@ class GCodeExecutor:
             elif command == 'G92':
                 for key in self.gcodelines[interval[0]].params:
                     self.__dict__[key] = self.read_param(interval[0],key)
+
+            self.robot.robot.recover_from_errors()
 
         else:
             print(f"No action for command: {command}")
