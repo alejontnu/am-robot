@@ -56,6 +56,16 @@ Arguments taken
 | --skip_connection | Skips connection to robot. Useful if only visualizing G-code or if no robot is physically connected. Default: False |
 
 
+Initial machine commands in G-code:
+```G-code
+G28 ; home all axes
+G1 Z5 F5000 ; lift nozzle
+M107 ; enable fan
+M104 S200 ; set temperature
+```
+This is so that homing and bed probing can be done before nozzle is heated up.
+
+
 ## Current status
 Preliminary result show need for better control of the extrusion process. As can be seen in the test print below, motion trajectories are aborted if the robot encounters an error (such as acceleration contraint violation) and the remainder of the motion trajectory is left incomplete.
 

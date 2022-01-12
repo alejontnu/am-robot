@@ -25,17 +25,52 @@ import ExtruderTool
 class GCodeExecutor:
     '''
     Read and parse gcode into a full object variable
-    
+
     Attributes:
     -----------
+    filename: string
+        filename to look for when loading G-code
+    robot: Class
+        Class object of the robot used
+    tool: Class
+        Class object of the tool head used
 
     Methods:
     -----------
+    load_gcode():
+        finds and runs pre-processing of G-code given by the attribute 'filename'
+    run_code_segment():
+        Used to run a single interval of G-code, such as a motion trajectory or machine setting change
+    probe_bed():
+        Used to run the bed probing sequence for determining bed flatness
+    display():
+        Displays basic information about G-code file
+    visualize_gcode():
+        Visualizes motion trajectories where extrusion is done, plotting a 3D line plot of the G-code model
+    visualize_bed_mesh():
+        Plots the bed mesh generated from the bed probing sequence
 
     '''
     def __init__(self,_filename,_robot,_tool):
+        '''
+        Initializes the Class object
+
+        Input:
+        -----
+        filename: string
+            filename to look for when loading G-code
+        robot: Class
+            Class object of the robot used
+        tool: Class
+            Class object of the tool head used
+
+        Returns:
+        -----
+        Initialized Class object
+
+        '''
         self.filename = _filename
-        self.interval = [0,0] # On the assumption that the first and second gcode command will allways be unique from eachother
+        self.interval = [0,0] # On the assumption that the first and second gcode command will allways be unique from eachother. This is a valid assumption
         self.list_of_intervals = []
 
         # initial values that should never be used before finding new values anyway
@@ -54,27 +89,96 @@ class GCodeExecutor:
 
 
     def get_interval(self):
+        '''
+        Returns the current G-code interval
+
+        Input:
+        -----
+
+        Returns:
+        -----
+        self.interval: [int,int]
+            list of index of start and end line of interval in G-code
+        '''
         return self.interval
-    
+
 
     # Set the current interval of gcode lines
     def set_interval(self,interval):
+        '''
+        Sets the G-code interval
+
+        Input:
+        -----
+        interval: [int,int]
+            Sets the interval of indexes for the start and end line of G-code interval
+
+        Returns:
+        -----
+
+        '''
         self.interval = interval
 
 
     def append_interval(self):
+        '''
+        Appends current self.interval to a list of intervals
+
+        Input:
+        -----
+
+        Returns:
+        -----
+
+        '''
         self.list_of_intervals.append(self.interval)
 
 
     def read_command(self,line_number):
+        '''
+        Returns the command for the given G-code line number
+
+        Input:
+        -----
+        line_number: int
+            G-code line index for reading command
+
+        Returns:
+        -----
+        command: string
+            Command for the specific line as 'letter+number' i.e. 'G28'
+
+        '''
         return self.gcodelines[line_number].command[0] + str(self.gcodelines[line_number].command[1])
 
 
     def get_command(self):
+        '''
+        Returns the current command
+
+        Input:
+        -----
+
+        Returns:
+        -----
+        command: string
+            Command as a string i.e. 'G28'
+
+        '''
         return self.command
 
 
     def set_command(self):
+        '''
+        Sets the first command of the current interval
+
+        Input:
+        -----
+
+        Returns:
+        -----
+
+        '''
         interval = self.interval
         command = self.read_command(interval[0])
         self.command = command
@@ -82,6 +186,22 @@ class GCodeExecutor:
 
     # read given param from gcode
     def read_param(self,line_number,param):
+        '''
+        Reads the parameter specified by 'param' for the given G-code line. If no such param exists, returns False
+
+        Input:
+        -----
+        line_number: int
+            G-code line index for reading parameter
+        param: string
+            String type of parameter to read, i.e. 'X' or 'F'
+
+        Returns:
+        -----
+        param_value: float
+            Float value of parameter
+
+        '''
         try:
             return self.gcodelines[line_number].params[param]
         except:
@@ -90,16 +210,58 @@ class GCodeExecutor:
 
     # get the current param from self
     def get_param(self,param):
+        '''
+        Gets the current value of the parameter
+
+        Input:
+        -----
+        param: string
+            String type of parameter to return, i.e. 'X' or 'F'
+
+        Returns:
+        -----
+        param_value: float
+            Float value of parameter
+
+        '''
         return self.__dict__[param]
 
 
     # set the current param to self
     def set_param(self,line_number,param):
+        '''
+        Sets the parameter value from the given G-code line to the object
+
+        Input:
+        -----
+        line_number: int
+            G-code line index for reading parameter
+        param: string
+            String type of parameter to set, i.e. 'X' or 'F'
+
+        Returns:
+        -----
+
+        '''
         if self.read_param(line_number,param) != False:
             self.__dict__[param] = self.read_param(line_number,param)
 
 
     def set_extremes(self,param,extreme):
+        '''
+        Update the extremity values of given parameter
+
+        Input:
+        -----
+        param: string
+            String type of parameter to update, i.e. 'X' or 'F'
+        extreme: float
+            Value of paremeter to update with
+
+        Returns:
+        -----
+
+        '''
         try:
             if param > self.__dict__[extreme][1]:
                 self.__dict__[extreme][1] = param
@@ -109,20 +271,42 @@ class GCodeExecutor:
             self.__dict__[extreme] = [param,param]
 
     def set_params(self,line_number):
+        '''
+        Sets all present parameters for the given G-code line
+
+        Input:
+        -----
+        line_number: int
+            G-code line index to read parameters from
+
+        Returns:
+        -----
+
+        '''
         for key in self.gcodelines[line_number].params:
             self.__dict__[key] = self.read_param(line_number,key)
 
 
     # Find the next instance of retraction (NB may be 0mm retraction)
     def find_next_interval(self):
+        '''
+        Finds the next interval bounded by certain criteria from when an interval should end and adds the interval to the list of intervals. Critria include change in material extrusion direction, command type change, layer change, change in process speed, etc..
+
+        Input:
+        -----
+
+        Returns:
+        -----
+        'End of code': string
+            String indicating end of G-code has been reached
+
+        '''
         if self.list_of_intervals == []:
             self.append_interval()
 
         if self.interval[1]+1 >= self.number_of_lines:
             print("End of code")
             return 'End of code'
-
-        ''' maybe change to while(if(if(break)),if(if(brake)),if(if(brake)),line += 1) '''
 
         line_number = self.interval[1]+1
         interval = [line_number,line_number]
@@ -178,6 +362,16 @@ class GCodeExecutor:
         self.append_interval()
 
     def find_intervals(self):
+        '''
+        Calls find_next_interval() repeatedly until all lines have been added to an interval
+
+        Input:
+        -----
+
+        Returns:
+        -----
+
+        '''
         while self.number_of_lines > self.interval[1] + 1:
             self.find_next_interval()
         self.current_interval = 1
@@ -185,6 +379,16 @@ class GCodeExecutor:
 
 
     def load_gcode(self):
+        '''
+        Finds the 'filename.gcode' file in the data folder and parses the file using GcodeParser. X, Y, Z parameters are converted to the size used by the robot, i.e. G-code millimeter is changed to robot meter. Calls find_intervals() to starts pre-processing of G-code.
+
+        Input:
+        -----
+
+        Returns:
+        -----
+
+        '''
         filename = self.filename
         file_extension = '.gcode'
         if file_extension not in filename:
@@ -210,6 +414,18 @@ class GCodeExecutor:
 
 
     def home_gcode(self,homing_type):
+        '''
+        Pauses to let the operator manually position the nozzle a small distance from the desired zero point of the G-code. A known point can also be used
+
+        Input:
+        -----
+        homing_type: string
+            Either 'Guiding' or 'known'. Guiding pauses to let the operator manually adjust nozzle position, known uses pre-provided position and continues.
+
+        Returns:
+        -----
+
+        '''
         if homing_type == 'Guiding':
             self.robot.robot_init_move()
 
@@ -227,7 +443,6 @@ class GCodeExecutor:
             # Can potentially add collision detection here to further improve home point. 
             # But new (0,0) point can be chosen from mid point of bed probing afterwards
 
-            #self.robot.set_robot_mode('Idle')
 
         elif homing_type == 'known':
             print("Set gcode_home to this value. Home point assumed known")
@@ -236,9 +451,22 @@ class GCodeExecutor:
         else:
             print("Failed to home gcode zero... Check RobotMode input")
 
-    def move_to_home(self,x,y,z):
+    def move_to_point(self,x,y,z):
         '''
-        Move to saved home location of gcode
+        Move to desired location, using x,y,z and G-code home pose offset and tool_pose reference frame
+
+        Input:
+        -----
+        x: float
+            X value of target position
+        y: float
+            Y value to target position
+        z: float
+            Z value of target position
+
+        Returns:
+        -----
+
         '''
         self.robot.robot.set_dynamic_rel(0.1)
         z_compensation = self.vertical_bed_level_compensation((x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2]))
@@ -247,6 +475,18 @@ class GCodeExecutor:
         self.robot.robot.recover_from_errors()
 
     def probe_bed(self):
+        '''
+        Probe the bed in a grid using motion force feedback to detect surface. Contact points are used to calculate the surface flatness.
+
+        Input:
+        -----
+
+        Returns:
+        -----
+        contact_found: bool
+            flag to inticate whether all probe points detected the surface or not. True if all points were successful.
+
+        '''
         probe_locations_xy = [[[0.05,0.05],[0,0.05],[-0.05,0.05]],[[0.05,0],[0,0],[-0.05,0]],[[0.05,-0.05],[0,-0.05],[-0.05,-0.05]]] # relative to ghome_gcode
 
         # Apply reaction motion if the force in negative z-direction is greater than 10N
@@ -315,11 +555,14 @@ class GCodeExecutor:
 
     def calculate_bed_surface_plane(self):
         '''
-        Calculate the plane equation given by ax + by + cz + d = 0
-        
-        Usage
+        Calculate the plane equation given by ax + by + cz + d = 0 with points taken from the bed probing process. Uses 3 non-collinear points A, B and C and calculates the cross product AB x AC = [a,b,c] and d = -(aAx + bAy + cAz)
+
+        Input:
         -----
-        Uses 3 non-collinear points A, B and C and calculates the cross product AB x AC = [a,b,c] and d = -(aAx + bAy + cAz)
+
+        Returns:
+        ----
+
         '''
         # Points
         A = self.bed_points[1][1]
@@ -339,12 +582,34 @@ class GCodeExecutor:
 
     def vertical_bed_level_compensation(self,point):
         '''
-        Calculates the vertical compensation needed due to non-horizontal build plane.
-        Compensation is made based on z height equal to 0, making the z component of 'point' excessive and unused
+        Calculates the vertical compensation needed due to non-horizontal build plane. Compensation is made based on z height equal to 0, making the z component of 'point' excessive and unused
+
+        Input:
+        -----
+        point: [float,float,float]
+            A point [x,y,z] for where compensation is calculated
+
+        Returns:
+        -----
+        z_compensation: float
+            A value corresponding to the offset from the bed plane in the Z direction at z=0
+
         '''
         return -(self.bed_plane_abcd[0]*point[0] + self.bed_plane_abcd[1]*point[1] + self.bed_plane_abcd[3])
 
     def does_model_fit_bed(self):
+        '''
+        Checks whether the physical dimension of  the model will fit in the build area
+
+        Input:
+        -----
+
+        Returns:
+        -----
+        flag: bool
+            True if model fits, else False
+
+        '''
         # Assumes a Cubic build volume.. Should use actual spherical volume
         # Change home pose to gcode home, checks then the spedific placement after homeing gcode zero
         if ((self.Xmax[1]+self.gcode_home_pose_vec[0] >= self.robot.radius) 
@@ -358,6 +623,18 @@ class GCodeExecutor:
             return True
 
     def is_build_feasible(self):
+        '''
+        Checks if build is feasible for the chosen G-code home point.
+
+        Input:
+        -----
+
+        Returns:
+        -----
+        flag: bool
+            True if feasible, else False
+
+        '''
         if not self.does_model_fit_bed():
             print("Model does not fit on build plate")
             return False
@@ -388,6 +665,20 @@ class GCodeExecutor:
         return True
 
     def make_waypoints(self,interval):
+        '''
+        Generate waypoint objects for motion trajectory to follow
+
+        Input:
+        -----
+        interval: [int,int]
+            Interval for which to make waypoints for 
+
+        Returns:
+        -----
+        waypoints: list of Waypoint objects
+            A list of waypoints in the Waypoint object type
+
+        '''
         waypoints = []
         for point in range(interval[0],interval[1]+1):
             z_compensation = self.vertical_bed_level_compensation((self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
@@ -395,6 +686,21 @@ class GCodeExecutor:
         return waypoints
 
     def make_path(self,interval,corner_blend_threshold):
+        '''
+        Generate waypoints for path following with a blending distance for smoothing motion when changing taget waypoint
+
+        Input:
+        -----
+        interval: [int,int]
+            Interval for which to make the PathMotion object for
+        corner_blend_threshold: float
+            radius for whech a new waypoint should be used as motion target
+
+        Returns:
+        -----
+        path: PathMotion object
+
+        '''
         path_points = []
         for point in range(interval[0],interval[1]+1):
             # for key in self.gcodelines[point].params:
@@ -412,16 +718,38 @@ class GCodeExecutor:
         print(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
         return path
 
-    def target_point(self,point):
+    def target_point(self,line_number):
         '''
-        point is an index for desired gcodeline
+
+
+        Input:
+        -----
+        line_number: int
+            Integer index of target G-code line point
+
+        Returns:
+        -----
+        The target point with bed level compensation and offset from G-code home location in relation to robot zero
+
         '''
-        z_compensation = self.vertical_bed_level_compensation((self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
-        return self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation
+        z_compensation = self.vertical_bed_level_compensation((self.read_param(line_number,'X') + self.gcode_home_pose_vec[0],self.read_param(line_number,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
+        return self.read_param(line_number,'X') + self.gcode_home_pose_vec[0],self.read_param(line_number,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation
 
 
     # Blocking action
     def run_code_segment(self,interval):
+        '''
+        Processes one interval based on the Command in that interval. Machine settings, movement, extrusion is set based on command and parameters.
+
+        Input:
+        -----
+        interval: [int,int]
+            Interval to process given by the line index of the G-code interval
+
+        Returns:
+        -----
+
+        '''
         command = self.read_command(interval[0])
         print(command)
         # Handle different M (machine) commands
@@ -461,7 +789,7 @@ class GCodeExecutor:
                     while self.tool.read_temperature() > 30: #assumed high ambient temperature
                         print(".")
                         time.sleep(1)
-                
+
             elif command == 'M140':
                 print("Set bed temperature")
             else:
@@ -554,11 +882,11 @@ class GCodeExecutor:
                 nr_keys = 0
                 for key in self.gcodelines[interval[0]].params:
                     nr_keys = nr_keys + 1
-                        
+
 
                 if nr_keys == 0:
                     # if not params move to default 0,0,0 start position
-                    self.move_to_home(x,y,z)
+                    self.move_to_point(x,y,z)
             elif command == 'G90':
                 print("use absolute coordinates")
 
@@ -599,6 +927,16 @@ class GCodeExecutor:
         #         self.E = self.read_param(interval[0],'E')
 
     def visualize_bed_mesh(self):
+        '''
+        Plot the bed mesh based on the bed_points from the probing sequence
+
+        Input:
+        -----
+
+        Returns:
+        -----
+
+        '''
         try:
             bed_points = self.bed_points
         except:
@@ -660,6 +998,16 @@ class GCodeExecutor:
         return 0
 
     def visualize_gcode(self):
+        '''
+        Visualize motion trajectories where extrusion occures. Plot of extrusion paths generates a model
+
+        Input:
+        -----
+
+        Returns:
+        -----
+
+        '''
         z = 0
         extrusion_distance = 0
         current_feedrate = 0
@@ -764,6 +1112,16 @@ class GCodeExecutor:
         self.reset_parameters()
 
     def reset_parameters(self):
+        '''
+        Resets parameters to zero
+
+        Input:
+        -----
+
+        Returns:
+        -----
+
+        '''
         # corresponding to 0,0,0 of start of printing
         self.X = 0
         self.Y = 0
@@ -772,10 +1130,32 @@ class GCodeExecutor:
         self.E = 0
 
     def __str__(self):
-        return "gcodeexecutor"
+        '''
+        Sets the Class object string representation
+
+        Input:
+        -----
+
+        Returns:
+        -----
+        "GCodeExecutor": string
+            String representation of Class object
+
+        '''
+        return "GCodeExecutor"
 
 
     def display(self):
+        '''
+        Display basic iformation about the Class object such as filename of processed file, number of lines, material use, etc.
+
+        Input:
+        -----
+
+        Returns:
+        -----
+
+        '''
         if '.gcode' in self.filename:
             print(f"\nName of file being processed: {self.filename}")
         else:
