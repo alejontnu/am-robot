@@ -46,7 +46,7 @@ Arduino FDM extruder controller is dependent on:
 - struct: To pack and unpack format used for serial communication
 
 ### Quick guide
-Arguments taken
+**Arguments taken**
 | Argument | info |
 |----------|------|
 | --host | ip string to connect to robot over ethernet |
@@ -56,7 +56,7 @@ Arguments taken
 | --skip_connection | Skips connection to robot. Useful if only visualizing G-code or if no robot is physically connected. Default: False |
 
 
-Initial machine commands in G-code:
+**G-code start code lines for machine**
 ```G-code
 G28 ; home all axes
 G1 Z5 F5000 ; lift nozzle
