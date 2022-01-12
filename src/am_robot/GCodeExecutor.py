@@ -20,7 +20,6 @@ elif sys.platform == 'win32':
         print('Running on OS: ' + sys.platform)
 
 import am_robot
-import ExtruderTool
 
 class GCodeExecutor:
     '''
