@@ -18,6 +18,16 @@ class ExtruderTool:
         feedrate in mm/s
     '''
     def __init__(self,_port,_tooltype,_filament_width,_nozzle_diameter,_tool_transformation):
+        '''
+        Disconnect the serial connection
+
+        Input:
+        -----
+
+        Returns:
+        -----
+
+        '''
         self.tooltype = _tooltype
         self.port = _port
         self.filament_width = _filament_width

@@ -51,7 +51,7 @@ class GCodeExecutor:
         Plots the bed mesh generated from the bed probing sequence
 
     '''
-    def __init__(self,_filename,_robot,_tool):
+    def __init__(self,filename,_robot,_tool):
         '''
         Initializes the Class object
 
@@ -69,7 +69,7 @@ class GCodeExecutor:
         Initialized Class object
 
         '''
-        self.filename = _filename
+        self.filename_ = filename
         self.interval = [0,0] # On the assumption that the first and second gcode command will allways be unique from eachother. This is a valid assumption
         self.list_of_intervals = []
 
@@ -389,7 +389,7 @@ class GCodeExecutor:
         -----
 
         '''
-        filename = self.filename
+        filename = self.filename_
         file_extension = '.gcode'
         if file_extension not in filename:
             filename = filename + '.gcode'
@@ -1103,7 +1103,7 @@ class GCodeExecutor:
                 aspectratio = dict( x=axis_scale[0], y=axis_scale[1], z=axis_scale[2] ),
                 aspectmode = 'manual'
             ),
-            title_text=('Visualization of extruded filament paths for ' + self.filename),
+            title_text=('Visualization of extruded filament paths for ' + self.filename_),
             showlegend=False
         )
 
@@ -1156,10 +1156,10 @@ class GCodeExecutor:
         -----
 
         '''
-        if '.gcode' in self.filename:
-            print(f"\nName of file being processed: {self.filename}")
+        if '.gcode' in self.filename_:
+            print(f"\nName of file being processed: {self.filename_}")
         else:
-            print(f"\nName of file being processed: {self.filename + '.gcode'}")
+            print(f"\nName of file being processed: {self.filename_ + '.gcode'}")
         print(f"Number of command lines processed: {self.number_of_lines}")
         print("Total filament used: \n")
 
