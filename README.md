@@ -69,7 +69,7 @@ This is so that homing and bed probing can be done before nozzle is heated up.
 ## Current status
 Preliminary result show need for better control of the extrusion process. As can be seen in the test print below, motion trajectories are aborted if the robot encounters an error (such as acceleration contraint violation) and the remainder of the motion trajectory is left incomplete.
 
-(image here)
+![First Benchy](https://github.com/alejontnu/am-robot/blob/main/images/blackprofile.png?raw=true)
 
 ## Future plans
 - Currently up to user to determine feasable build area size, can possibly implement an automatic check for this.
