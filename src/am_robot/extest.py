@@ -6,6 +6,17 @@ import math
 
 
 def main():
+	'''
+	For calibrating extruder extrusion rate. Setting rate to 10mm/s and extruding for 100s with the expected extrusion length to be 1000mm. Ratio found can be used to find a correctiong term.
+	'''
+	parser = argparse.ArgumentParser(formatter_class=argparse.MetavarTypeHelpFormatter,
+        description=('''To calibrate extrusion rate''')
+        ,add_help=True)
+		
+	parser.add_argument('--port', default='/dev/ttyUSB0', type=str, help='Serial connection of the tool used')
+	parser.add_argument('--test', default='extrusion',type=str,help='Type of test')
+	
+	args = parser.parse_args()
 
 	E = 69
 	T = 84
@@ -13,20 +24,18 @@ def main():
 	H = 72
 	B = 66
 
+	ser = serial.Serial(args.port)
 
+	print("Starting extrusion at 10mm/s")
+	set_feedrate(feedrate_to_motor_frequency(0.0),ser)
 
-	#ser = serial.Serial('/dev/ttyS5',9600,timeout=1,parity='N',rtscts=1)
-	#ser = serial.Serial('/dev/ttyS5')#,9600,timeout=1,parity='N',rtscts=1)
-	ser = serial.Serial('/dev/ttyUSB0')
+	set_feedrate(feedrate_to_motor_frequency(10.0),ser)
+	
+	print("Sleeping for 100 seconds")
+	time.sleep(100)
 
-
-	read_serial(ser)
-	set_nozzletemp(200.0,ser)
-	set_feedrate(feedrate_to_motor_frequency(0),ser)
-
-	for i in range(10):
-		read_serial(ser)
-		time.sleep(1)
+	print("Done! Stopping extrusion...")
+	set_feedrate(feedrate_to_motor_frequency(0.0),ser)
 
 	ser.close()
 

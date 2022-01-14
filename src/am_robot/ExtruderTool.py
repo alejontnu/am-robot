@@ -46,6 +46,7 @@ class ExtruderTool(AbstractTool):
         self.micro_stepping = 16.0
         self.gear_ratio = 3.0 # From datasheet
         self.hobb_diameter_mm = 7.68 # 7.3 # From datasheet/manufacturer (effective and should be calibrated)
+        self.correcting_term = 1.0 # Change this to value after running extest.py and calculating true value
 
         self.steps_per_mm_filament = self.calculate_steps_per_mm()
 
@@ -260,7 +261,7 @@ class ExtruderTool(AbstractTool):
             Number of stepper motor 'steps' per mm input filament
 
         '''
-        return self.motor_steps_per_revolution * self.micro_stepping * self.gear_ratio / (self.hobb_diameter_mm * math.pi)
+        return (self.motor_steps_per_revolution * self.micro_stepping * self.gear_ratio) / (self.hobb_diameter_mm * math.pi)
 
     def convert_per_minute_to_per_second(self,value_per_minute):
         '''
