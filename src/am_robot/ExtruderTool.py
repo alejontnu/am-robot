@@ -3,7 +3,9 @@ import math
 import struct
 import time
 
-class ExtruderTool:
+from am_robot.AbstractTool import AbstractTool
+
+class ExtruderTool(AbstractTool):
     '''
     Converts feedrate from mm/min to mm/s and passes it to extrusion controller
 
@@ -17,9 +19,9 @@ class ExtruderTool:
     feedrate: float
         feedrate in mm/s
     '''
-    def __init__(self,_port,_tooltype,_filament_width,_nozzle_diameter,_tool_transformation):
+    def __init__(self,port,tooltype,filament_width,nozzle_diameter,tool_transformation,skip_connection):
         '''
-        Disconnect the serial connection
+        Initialize extruder tool
 
         Input:
         -----
@@ -28,13 +30,17 @@ class ExtruderTool:
         -----
 
         '''
-        self.tooltype = _tooltype
-        self.port = _port
-        self.filament_width = _filament_width
-        self.nozzle_diameter = _nozzle_diameter
-        self.T_tool = _tool_transformation
+        super().__init__(port)
 
-        self.ser = serial.Serial(self.port)
+
+        self.tooltype = tooltype
+        self.port = port
+        self.filament_width = filament_width
+        self.nozzle_diameter = nozzle_diameter
+        self.T_tool = tool_transformation
+
+        if not skip_connection:
+            self.ser = serial.Serial(self.port)
 
         self.motor_steps_per_revolution = 400.0
         self.micro_stepping = 16.0
@@ -43,7 +49,6 @@ class ExtruderTool:
 
         self.steps_per_mm_filament = self.calculate_steps_per_mm()
 
-        #elf.T1 = []
 
     def disconnect(self):
         '''

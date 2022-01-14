@@ -63,7 +63,7 @@ def main():
     time_elapsed_task = time.time()
     time_elapsed_total = time.time()
 
-    tool = ExtruderTool(args.tool,'FDM',args.f_width,args.d_nozzle,args.t_tool)
+    tool = ExtruderTool(args.tool,'FDM',args.f_width,args.d_nozzle,args.t_tool,args.skip_connection)
     robot = FrankaRobot(args.host,args.skip_connection)
     executor = GCodeExecutor(args.gfile,robot,tool)
     executor.load_gcode()
@@ -120,7 +120,8 @@ def main():
     print(f"Task done in {time_elapsed_task:.5f}s")
     print(f"Total time elapsed: {time_elapsed_total:.5f}s")
 
-    executor.tool.disconnect()
+    if not args.skip_connection:
+        executor.tool.disconnect()
 
 if __name__ == '__main__':
     main()

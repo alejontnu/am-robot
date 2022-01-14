@@ -2,25 +2,19 @@ import sys
 import math
 
 if sys.platform == 'linux':
-    from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion
+    from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion, Waypoint, Reaction, LinearRelativeMotion, Measure, PathMotion, MotionData
 elif sys.platform == 'win32':
     try:
-        from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion
+        from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion, Waypoint, Reaction, LinearRelativeMotion, Measure, PathMotion, MotionData
     except Exception as e:
         print(e)
     finally:
         print('Running on OS: ' + sys.platform)
 
-'''
-change to inheritance 
-class Robot(ConnectedRobot)
-    def __init__(self,...)
-        super.__init__(...)
-where Robot is the abstract and ConnectedRobot is robot class used i.e. Robot from Frankx
-'''
+from am_robot.AbstractRobot import AbstractRobot
 
 
-class FrankaRobot:
+class FrankaRobot(AbstractRobot):
     '''
     Class object attributes and methods for a Franka Emika Panda robot.
 
@@ -36,7 +30,7 @@ class FrankaRobot:
     ...
 
     '''
-    def __init__(self,_host,_skip_connection):
+    def __init__(self,host,skip_connection):
         '''
         Initialize the Class object
 
@@ -52,15 +46,16 @@ class FrankaRobot:
         Initialized Class object
 
         '''
+        super().__init__(host)
 
-        self.ip = _host
+        self.host = host
         self.max_cart_vel = 1700 # mm/s max cartesian velocity
         self.max_cart_acc = 13 # mm/s² max cartesian acceleration
         self.max_cart_jerk = 6500 # mm/s³ max cartesion jerk
 
         # To skip connection (True) when not at robot for testing other functions without connection timeout
-        if _skip_connection == True:
-            print("Skipped trying to connect to robot with IP: " + self.ip)
+        if skip_connection == True:
+            print("Skipped trying to connect to robot with IP: " + self.host)
             self.robot = {}
             self.current_pose = []
             self.is_connected = False
@@ -68,12 +63,12 @@ class FrankaRobot:
         else:
             try:
                 print("Attempting to connect to robot...")
-                self.robot = Robot(self.ip,repeat_on_error=False)
+                self.robot = Robot(self.host,repeat_on_error=False)
             except Exception as e:
-                print("Could not connect to robot on IP: " + self.ip + "\n")
+                print("Could not connect to robot on host IP: " + self.host + "\n")
                 raise e 
             else:
-                print("Connected to robot in IP: " + self.ip)
+                print("Connected to robot on host IP: " + self.host)
 
                 self.is_connected = True
                 self.gripper = self.robot.get_gripper()
@@ -220,3 +215,54 @@ class FrankaRobot:
 
         '''
         return self.robot.current_pose()
+
+    def recover_from_errors(self):
+        self.robot.recover_from_error()
+
+    def set_dynamic_rel(self,value):
+        self.robot.set_dynamic_rel(value)
+
+    def set_velocity_rel(self,value):
+        self.robot.velocity_rel(value)
+
+    def set_acceleration_rel(self,value):
+        self.robot.acceleration_rel(value)
+
+    def set_jerk_rel(self,value):
+        self.robot.jerk_rel(value)
+
+    def execute_move(self,frame=None,motion=None):
+        if frame == None:
+            self.robot.move(motion)
+        else:
+            self.robot.move(frame,motion)
+
+    def execute_reaction_move(self,frame=None,motion=None,data=None):
+        if frame == None:
+            self.robot.move(motion,data)
+        else:
+            self.robot.move(frame,motion,data)
+
+    def execute_async_move(self,frame=None,motion=None,data=None):
+        return self.robot.move_async(frame,motion,data)
+
+    def make_linear_motion(self,affine):
+        return LinearMotion(affine)
+
+    def make_linear_relative_motion(self,affine):
+        return LinearRelativeMotion(affine)
+
+    def make_Z_reaction_data(self,force,reaction=None):
+        return MotionData().with_reaction(Reaction(Measure.ForceZ < force, reaction))
+
+    def make_norm_reaction_data(self,force,reaction=None):
+        return MotionData().with_reaction(Reaction(Measure.ForceXYZNorm > force, reaction))
+
+    def make_affine_object(self,x,y,z,a=0,b=0,c=0):
+        return Affine(x,y,z,a,b,c)
+
+    def make_waypoint(self,affine):
+        return Waypoint(affine)
+
+    def make_path_motion(self,path_points,blending_distance):
+        return PathMotion(path_points,blend_max_distance=blending_distance)
