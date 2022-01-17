@@ -9,6 +9,8 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from gcodeparser import GcodeParser
+
+
 if sys.platform == 'linux':
     from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, PathMotion, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion
 elif sys.platform == 'win32':
@@ -20,8 +22,9 @@ elif sys.platform == 'win32':
         print('Running on OS: ' + sys.platform)
 
 import am_robot
+from am_robot.GCodeCommands import GCodeCommands
 
-class GCodeExecutor:
+class GCodeExecutor(GCodeCommands):
     '''
     Read and parse gcode into a full object variable
 
@@ -68,6 +71,8 @@ class GCodeExecutor:
         Initialized Class object
 
         '''
+        super().__init__()
+
         self.filename_ = filename
         self.interval = [0,0] # On the assumption that the first and second gcode command will allways be unique from eachother. This is a valid assumption
         self.list_of_intervals = []
@@ -736,9 +741,13 @@ class GCodeExecutor:
         z_compensation = self.vertical_bed_level_compensation((self.read_param(line_number,'X') + self.gcode_home_pose_vec[0],self.read_param(line_number,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
         return self.read_param(line_number,'X') + self.gcode_home_pose_vec[0],self.read_param(line_number,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation
 
+    def run_code_segments(self):
+        for interval in self.list_of_intervals:
+            self.interval = interval
+            self.run_code_segment()
 
     # Blocking action
-    def run_code_segment(self,interval):
+    def run_code_segment(self):
         '''
         Processes one interval based on the Command in that interval. Machine settings, movement, extrusion is set based on command and parameters.
 
@@ -751,71 +760,76 @@ class GCodeExecutor:
         -----
 
         '''
-        command = self.read_command(interval[0])
+        command = self.read_command(self.interval[0])
         print(command)
         # Handle different M (machine) commands
         if command[0] == 'M':
-            print("send to tool")
-            if command == 'M82':
-                print("E absolute")
-            elif command == 'M83':
-                print("E Relative")
-            elif command == 'M84':
-                print("Disable motors")
-            elif command == 'M104':
-                print("Setting hotend temperature")
-                self.tool.set_nozzletemp(self.read_param(interval[0],'S'))
-            elif command == 'M105':
-                print("Getting nozzle temperature reading")
-                print(self.tool.read_temperature())
-            elif command == 'M106':
-                print("Set fan speed")
-                self.tool.set_fanspeed(self.read_param(interval[0],'S'))
-            elif command == 'M107':
-                print("Fan off - Not implemented")
-            elif command == 'M109':
-                print("Waiting for hotend temperature")
-                if self.read_param(interval[0],'S') != False:
-                    self.tool.set_nozzletemp(self.read_param(interval[0],'S'))
-                    while self.tool.read_temperature() < self.read_param(interval[0],'S')-5:
-                        print(".")
-                        time.sleep(1)
-                elif self.read_param(interval[0],'R') != False:
-                    self.tool.set_nozzletemp(self.read_param(interval[0],'R'))
-                    while self.tool.read_temperature() < self.read_param(interval[0],'R')-5 or self.tool.read_nozzletemp() > self.read_param(interval[0],'R')+5:
-                        print(".")
-                        time.sleep(1)
-                else:
-                    self.tool.set_nozzletemp(0)
-                    while self.tool.read_temperature() > 35: #assumed high ambient temperature
-                        print(".")
-                        time.sleep(1)
+            # Call method for each M-command
+            getattr(self,command,getattr(self,'default'))()
+            
+            # print("send to tool")
+            # if command == 'M82':
+            #     print("E absolute")
+            # elif command == 'M83':
+            #     print("E Relative")
+            # elif command == 'M84':
+            #     print("Disable motors")
+            # elif command == 'M104':
+            #     print("Setting hotend temperature")
+            #     self.tool.set_nozzletemp(self.read_param(interval[0],'S'))
+            # elif command == 'M105':
+            #     print("Getting nozzle temperature reading")
+            #     print(self.tool.read_temperature())
+            # elif command == 'M106':
+            #     print("Set fan speed")
+            #     self.tool.set_fanspeed(self.read_param(interval[0],'S'))
+            # elif command == 'M107':
+            #     print("Fan off - Not implemented")
+            # elif command == 'M109':
+            #     print("Waiting for hotend temperature")
+            #     if self.read_param(interval[0],'S') != False:
+            #         self.tool.set_nozzletemp(self.read_param(interval[0],'S'))
+            #         while self.tool.read_temperature() < self.read_param(interval[0],'S')-5:
+            #             print(".")
+            #             time.sleep(1)
+            #     elif self.read_param(interval[0],'R') != False:
+            #         self.tool.set_nozzletemp(self.read_param(interval[0],'R'))
+            #         while self.tool.read_temperature() < self.read_param(interval[0],'R')-5 or self.tool.read_nozzletemp() > self.read_param(interval[0],'R')+5:
+            #             print(".")
+            #             time.sleep(1)
+            #     else:
+            #         self.tool.set_nozzletemp(0)
+            #         while self.tool.read_temperature() > 35: #assumed high ambient temperature
+            #             print(".")
+            #             time.sleep(1)
 
-            elif command == 'M140':
-                print("Set bed temperature")
-            else:
-                print(f"No action for command: {command}")
+            # elif command == 'M140':
+            #     print("Set bed temperature")
+            # else:
+            #     print(f"No action for command: {command}")
 
         elif command[0] == 'G':
 
             # Find current / new z-height %% Implement for each line instead of start of interval, ignored if no new value anyway %%
-            if self.read_param(interval[0],'Z') != False:
-                self.Z = self.read_param(interval[0],'Z')
+            if self.read_param(self.interval[0],'Z') != False:
+                self.Z = self.read_param(self.interval[0],'Z')
 
             # Find desired feedrate / working speed / max velocity
-            if self.read_param(interval[0],'F') != False:
-                self.F = self.read_param(interval[0],'F')
+            if self.read_param(self.interval[0],'F') != False:
+                self.F = self.read_param(self.interval[0],'F')
 
-            if command == 'G0':
-                # Stop extrusion and move to target
-                self.tool.set_feedrate(0) # just incase
-                #if self.read_param(interval[0],'X') != False or self.read_param(interval[0],'Y') != False or self.read_param(interval[0],'Z') != False:
-                if self.read_param(interval[0],'X') != False and self.read_param(interval[0],'Y') != False:
-                    motion = self.make_path(interval,0.01)
-                    self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
+            getattr(self,command,getattr(self,'default'))()
 
-                    input("Press enter to start non-extrusion move...")
-                    self.robot.execute_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion)
+            # if command == 'G0':
+            #     # Stop extrusion and move to target
+            #     self.tool.set_feedrate(0) # just incase
+            #     #if self.read_param(interval[0],'X') != False or self.read_param(interval[0],'Y') != False or self.read_param(interval[0],'Z') != False:
+            #     if self.read_param(self.interval[0],'X') != False and self.read_param(self.interval[0],'Y') != False:
+            #         motion = self.make_path(self.interval,0.01)
+            #         self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
+
+            #         input("Press enter to start non-extrusion move...")
+            #         self.robot.execute_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion)
 
             # if command == 'G0':
             #     # Stop extrusion and move to target
@@ -825,82 +839,155 @@ class GCodeExecutor:
             #         self.robot.lin_move_to_point(self.read_param(interval[0],'X') + self.gcode_home_pose_vec[0],self.read_param(interval[0],'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2])
 
 
-            elif command == 'G1':
-                if (self.read_param(interval[0],'X') != False) or (self.read_param(interval[0],'Y') != False) or (self.read_param(interval[0],'Z') != False):
+            #elif command == 'G1':
+                # if (self.read_param(self.interval[0],'X') != False) or (self.read_param(self.interval[0],'Y') != False) or (self.read_param(self.interval[0],'Z') != False):
 
-                    # Make path trajectory
-                    motion = self.make_path(interval,0.003) # PathMotion gives smooth movement compared to WayPointMovement
+                #     # Make path trajectory
+                #     motion = self.make_path(self.interval,0.003) # PathMotion gives smooth movement compared to WayPointMovement
 
-                    # set dynamic rel and relative max velocity based on feedrate
-                    self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
+                #     # set dynamic rel and relative max velocity based on feedrate
+                #     self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
 
-                    # Accept check
-                    #input("Press enter to start extrusion move move...")
+                #     # Accept check
+                #     #input("Press enter to start extrusion move move...")
 
-                    start_time = time.time()
+                #     start_time = time.time()
 
-                    # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
-                    if self.read_param(interval[0],'E') != False:
-                        self.tool.set_feedrate(self.F/40.0)
+                #     # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
+                #     if self.read_param(self.interval[0],'E') != False:
+                #         self.tool.set_feedrate(self.F/40.0)
 
-                    # feed path motion to robot and move using a separate thread
-                    thread = self.robot.execute_async_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion) # Just starts move in a thread with some initialization
+                #     # feed path motion to robot and move using a separate thread
+                #     thread = self.robot.execute_async_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion) # Just starts move in a thread with some initialization
 
-                    print("waiting on thread to finish motion")
-                    # Wait here for path motion to finish and join the thread
-                    thread.join()
+                #     print("waiting on thread to finish motion")
+                #     # Wait here for path motion to finish and join the thread
+                #     thread.join()
 
-                    end_time = time.time()
-                    print("path time elapsed:")
-                    print(end_time - start_time)
+                #     end_time = time.time()
+                #     print("path time elapsed:")
+                #     print(end_time - start_time)
 
-                    # Thread done aka move done aka stop extrusion immidiately
-                    self.tool.set_feedrate(0)
+                #     # Thread done aka move done aka stop extrusion immidiately
+                #     self.tool.set_feedrate(0)
 
-                elif self.read_param(interval[0],'E') != False:
-                    # Target extrusion distance and time elapsed at given feedrate
-                    target_E = self.read_param(interval[0],'E')
-                    sleep_time = self.tool.calculate_delta_t(target_E,self.E,self.F)
+                # elif self.read_param(self.interval[0],'E') != False:
+                #     # Target extrusion distance and time elapsed at given feedrate
+                #     target_E = self.read_param(self.interval[0],'E')
+                #     sleep_time = self.tool.calculate_delta_t(target_E,self.E,self.F)
 
-                    # set retraction/un-retraction feedrate
-                    self.tool.set_feedrate(np.sign(sleep_time)*self.F/40.0)
-                    # Sleep
-                    time.sleep(abs(sleep_time))
-                    # Stop retraction/un-retraction
-                    self.tool.set_feedrate(0)
+                #     # set retraction/un-retraction feedrate
+                #     self.tool.set_feedrate(np.sign(sleep_time)*self.F/40.0)
+                #     # Sleep
+                #     time.sleep(abs(sleep_time))
+                #     # Stop retraction/un-retraction
+                #     self.tool.set_feedrate(0)
 
-                self.set_params(interval[1])
+                # self.set_params(self.interval[1])
 
-            elif command == 'G21':
-                print("set units to millimeters")
-            elif command == 'G2855':
-                print("Auto home")
-                x = 0
-                y = 0
-                z = 0
+            # elif command == 'G2855':
+            #     print("Auto home")
+            #     x = 0
+            #     y = 0
+            #     z = 0
 
-                # is params, move slightly above highest print height
-                nr_keys = 0
-                for key in self.gcodelines[interval[0]].params:
-                    nr_keys = nr_keys + 1
+            #     # is params, move slightly above highest print height
+            #     nr_keys = 0
+            #     for key in self.gcodelines[self.interval[0]].params:
+            #         nr_keys = nr_keys + 1
 
 
-                if nr_keys == 0:
-                    # if not params move to default 0,0,0 start position
-                    self.move_to_point(x,y,z)
-            elif command == 'G90':
-                print("use absolute coordinates")
+            #     if nr_keys == 0:
+            #         # if not params move to default 0,0,0 start position
+            #         self.move_to_point(x,y,z)
+            # elif command == 'G90':
+            #     print("use absolute coordinates")
 
             # Reset extruder/all distances
-            elif command == 'G92':
-                for key in self.gcodelines[interval[0]].params:
-                    self.__dict__[key] = self.read_param(interval[0],key)
+            # elif command == 'G92':
+            #     for key in self.gcodelines[self.interval[0]].params:
+            #         self.__dict__[key] = self.read_param(self.interval[0],key)
 
             self.robot.recover_from_errors()
 
         else:
-            print(f"No action for command: {command}")
+            print(f"No command with letter: {command[0]}")
             #do other stuff
+
+    def G0(self):
+        print("linear non-extrusion move")
+        # Stop extrusion and move to target
+        self.tool.set_feedrate(0) # just incase
+        #if self.read_param(interval[0],'X') != False or self.read_param(interval[0],'Y') != False or self.read_param(interval[0],'Z') != False:
+        if self.read_param(self.interval[0],'X') != False and self.read_param(self.interval[0],'Y') != False:
+            motion = self.make_path(self.interval,0.01)
+            self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
+
+            input("Press enter to start non-extrusion move...")
+            self.robot.execute_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion)
+
+    def G1(self):
+        print("linear extrusion move")
+        if (self.read_param(self.interval[0],'X') != False) or (self.read_param(self.interval[0],'Y') != False) or (self.read_param(self.interval[0],'Z') != False):
+
+            # Make path trajectory
+            motion = self.make_path(self.interval,0.003) # PathMotion gives smooth movement compared to WayPointMovement
+
+            # set dynamic rel and relative max velocity based on feedrate
+            self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
+
+            # Accept check
+            #input("Press enter to start extrusion move move...")
+
+            start_time = time.time()
+
+            # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
+            if self.read_param(self.interval[0],'E') != False:
+                self.tool.set_feedrate(self.F/40.0)
+
+            # feed path motion to robot and move using a separate thread
+            thread = self.robot.execute_async_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion) # Just starts move in a thread with some initialization
+
+            print("waiting on thread to finish motion")
+            # Wait here for path motion to finish and join the thread
+            thread.join()
+
+            end_time = time.time()
+            print("path time elapsed:")
+            print(end_time - start_time)
+
+            # Thread done aka move done aka stop extrusion immidiately
+            self.tool.set_feedrate(0)
+
+        elif self.read_param(self.interval[0],'E') != False:
+            # Target extrusion distance and time elapsed at given feedrate
+            target_E = self.read_param(self.interval[0],'E')
+            sleep_time = self.tool.calculate_delta_t(target_E,self.E,self.F)
+
+            # set retraction/un-retraction feedrate
+            self.tool.set_feedrate(np.sign(sleep_time)*self.F/40.0)
+            # Sleep
+            time.sleep(abs(sleep_time))
+            # Stop retraction/un-retraction
+            self.tool.set_feedrate(0)
+
+        self.set_params(self.interval[1])
+
+    def G28(self):
+        print("Auto home")
+        x = 0
+        y = 0
+        z = 0
+
+        # is params, move slightly above highest print height
+        nr_keys = 0
+        for key in self.gcodelines[self.interval[0]].params:
+            nr_keys = nr_keys + 1
+
+
+        if nr_keys == 0:
+            # if not params move to default 0,0,0 start position
+            self.move_to_point(x,y,z)
 
     def visualize_bed_mesh(self):
         '''

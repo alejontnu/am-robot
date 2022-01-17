@@ -26,13 +26,15 @@ def main():
 
 	ser = serial.Serial(args.port)
 
+	feedrate = 600
+
 	print("Starting extrusion at 10mm/s")
 	set_feedrate(feedrate_to_motor_frequency(0.0),ser)
 
-	set_feedrate(feedrate_to_motor_frequency(10.0),ser)
+	set_feedrate(feedrate_to_motor_frequency(feedrate/60.0),ser)
 	
-	print("Sleeping for 100 seconds")
-	time.sleep(100)
+	print("Sleeping for 10 seconds")
+	time.sleep(10)
 
 	print("Done! Stopping extrusion...")
 	set_feedrate(feedrate_to_motor_frequency(0.0),ser)

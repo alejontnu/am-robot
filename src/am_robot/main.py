@@ -104,12 +104,9 @@ def main():
                     input("When happy with bed mesh press enter...")
 
                 time_elapsed_task = time.time()
-                for interval in executor.list_of_intervals:
-                    # Blocking function, exits after interval is done:
-                    print(interval)
-                    executor.run_code_segment(interval)
-
+                executor.run_code_segments()
                 time_elapsed_task = time.time() - time_elapsed_task
+                
             else:
                 print("One of more points of the bed was not found, check and level bed roughly")
         else:

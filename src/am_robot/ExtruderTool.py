@@ -9,12 +9,12 @@ class ExtruderTool(AbstractTool):
     '''
     Converts feedrate from mm/min to mm/s and passes it to extrusion controller
 
-    Parameters:
+    Attributes:
     -----------
     feedrate: int
         rate of filament enxtrusion in mm/min
 
-    Returns:
+    Methods:
     -----------
     feedrate: float
         feedrate in mm/s
@@ -125,8 +125,7 @@ class ExtruderTool(AbstractTool):
         -----
 
         '''
-        # not implemented
-        x=1
+        print(" Fan speed not implemented")
 
     def disable_fan(self):
         '''
@@ -139,8 +138,7 @@ class ExtruderTool(AbstractTool):
         -----
 
         '''
-        # not implemented
-        x=1
+        print("Disable fan not implemented")
 
     def read_temperature(self):
         '''
