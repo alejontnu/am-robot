@@ -243,7 +243,7 @@ class FrankaRobot(AbstractRobot):
         else:
             self.robot.move(frame,motion,data)
 
-    def execute_async_move(self,frame=None,motion=None,data=None):
+    def execute_threaded_move(self,frame=None,motion=None,data=None):
         return self.robot.move_async(frame,motion,data)
 
     def make_linear_motion(self,affine):

@@ -55,6 +55,7 @@ def main():
     parser.add_argument('--f_width', default=2.85, type=float, help='Width of filament used')
 
     parser.add_argument('--visualize', default=False, type=bool, help='Visualize the given Gcode as a 3D plot. Skips any hardware connection precess')
+    parser.add_argument('--lines',default=100000000,type=int,help='Max number of lines to process, default is higher than ever expected')
     parser.add_argument('--skip_connection', default=False, type=bool, help='If True, skips the connection to robot. For testing out-of-lab. Also defaults too True if visualize is True')
     parser.add_argument('--skip_probe',default=False,type=bool,help='If True, skips the bed probing step')
     parser.add_argument('--skip_segments',default=False,type=bool,help='Skips the G-code segments')
@@ -66,7 +67,7 @@ def main():
     tool = ExtruderTool(args.tool,'FDM',args.f_width,args.d_nozzle,args.t_tool,args.skip_connection)
     robot = FrankaRobot(args.host,args.skip_connection)
     executor = GCodeExecutor(args.gfile,robot,tool)
-    executor.load_gcode()
+    executor.load_gcode(args.lines)
 
     print("Done pre-processing gcode")
 
@@ -106,7 +107,7 @@ def main():
                 time_elapsed_task = time.time()
                 executor.run_code_segments()
                 time_elapsed_task = time.time() - time_elapsed_task
-                
+
             else:
                 print("One of more points of the bed was not found, check and level bed roughly")
         else:

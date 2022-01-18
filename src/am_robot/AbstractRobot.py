@@ -46,7 +46,7 @@ class AbstractRobot():
     def execute_reaction_move(self,frame=None,motion=None,data=None):
         print("Function 'execute_reaction_move(frame,motion,data)' missing in Specific robot Class, please implement...")
 
-    def execute_async_move(self,frame=None,motion=None,data=None):
+    def execute_threaded_move(self,frame=None,motion=None,data=None):
         print("Function 'execute_async_move(frame,motion,data)' missing in Specific robot Class, please implement...")
 
     def make_linear_motion(self,affine):

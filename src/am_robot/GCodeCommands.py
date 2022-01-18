@@ -64,15 +64,27 @@ class GCodeCommands():
                 time.sleep(1)
 
     def M140(self):
-        print("Set bed temperature")
+        print("Set bed temperature - Not implemented")
 
     ''' G-command methods '''
 
     def G0(self):
-        print("linear non-extrusion move")
+        print("linear non-extrusion move - Not implemented (Robot specific)")
 
     def G1(self):
-        print("linear extrusion move")
+        print("linear extrusion move - Not implemented (Robot specific)")
+
+    def G2(self):
+        print("Clockwise arc/circle extrusion move - Not implemented (Robot specific)")
+
+    def G3(self):
+        print("Counter-clockwise arc/circle extrusion move - Not implemented (Robot specific)")
+
+    def G10(self):
+        print("Retraction move - Not implemented")
+
+    def G11(self):
+        print("Recover move (after retraction) - Not implemented")
 
     def G20(self):
         print("set units to inches")
@@ -83,10 +95,10 @@ class GCodeCommands():
         self.units = 'mm'
 
     def G28(self):
-        print("Auto home")
+        print("Auto home - Not implemented (Done pre-emptively)")
 
     def G29(self):
-        print("Bed leveling")
+        print("Bed leveling - Not implemented (done pre-emptively)")
 
     def G90(self):
         print("Use absolute coordinates")
@@ -103,7 +115,7 @@ class GCodeCommands():
         self.Z_positioning = 'rel'
 
     def G92(self):
-        print("Reset extreuder/all distances")
+        print("Reset extruder/all distances")
         for key in self.gcodelines[self.interval[0]].params:
             self.__dict__[key] = self.read_param(self.interval[0],key)
 

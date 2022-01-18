@@ -305,6 +305,13 @@ class GCodeExecutor(GCodeCommands):
             String indicating end of G-code has been reached
 
         '''
+        '''
+        priority:
+        change on command change
+        change on retraction/reversing of material/tool feedrate
+
+        
+        '''
         if self.list_of_intervals == []:
             self.append_interval()
 
@@ -327,15 +334,17 @@ class GCodeExecutor(GCodeCommands):
                 self.set_extremes(self.read_param(line_number,'F'),'Fmax')
 
             # Find desired interval change condition
+            # Check if next line has a command has changed
             if self.read_command(line_number) != self.read_command(self.interval[1]+1):
                 interval = [self.interval[1]+1,line_number-1]
                 break
+            # Check reversing of material extrusion
             elif self.read_param(line_number,'E') != False and self.read_param(line_number,'E') < self.get_param('E'):
                 interval = [self.interval[1]+1,line_number-1]
                 break
-            # elif self.read_param(line_number-1,'E') != False and self.read_param(line_number,'E') == False:
-            #     interval = [self.interval[1]+1,line_number-1]
-            #     break
+            elif self.read_param(line_number-1,'E') != False and self.read_param(line_number,'E') == False:
+                interval = [self.interval[1]+1,line_number-1]
+                break
             elif self.read_param(line_number,'F') != False and self.read_param(line_number,'F') != self.get_param('F'): 
             # Check if this is wanted, or append this last x-y line to interval
                 self.set_param(line_number,'F')
@@ -372,11 +381,10 @@ class GCodeExecutor(GCodeCommands):
         '''
         while self.number_of_lines > self.interval[1] + 1:
             self.find_next_interval()
-        self.current_interval = 1
         self.reset_parameters()
 
 
-    def load_gcode(self):
+    def load_gcode(self,lines):
         '''
         Finds the 'filename.gcode' file in the data folder and parses the file using GcodeParser. X, Y, Z parameters are converted to the size used by the robot, i.e. G-code millimeter is changed to robot meter. Calls find_intervals() to starts pre-processing of G-code.
 
@@ -401,13 +409,15 @@ class GCodeExecutor(GCodeCommands):
         for line in self.gcodelines:
             for element in line.params:
                 if element == 'X':
-                    line.update_param('X',line.get_param('X')/1000)
+                    line.update_param('X',line.get_param('X')/1000.0)
                 if element == 'Y':
-                    line.update_param('Y',line.get_param('Y')/1000)
+                    line.update_param('Y',line.get_param('Y')/1000.0)
                 if element == 'Z':
-                    line.update_param('Z',line.get_param('Z')/1000)
+                    line.update_param('Z',line.get_param('Z')/1000.0)
 
         self.number_of_lines = len(self.gcodelines)
+        if self.number_of_lines > lines:
+            self.number_of_lines = lines
         self.find_intervals()
 
 
@@ -858,7 +868,7 @@ class GCodeExecutor(GCodeCommands):
                 #         self.tool.set_feedrate(self.F/40.0)
 
                 #     # feed path motion to robot and move using a separate thread
-                #     thread = self.robot.execute_async_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion) # Just starts move in a thread with some initialization
+                #     thread = self.robot.execute_threaded_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion) # Just starts move in a thread with some initialization
 
                 #     print("waiting on thread to finish motion")
                 #     # Wait here for path motion to finish and join the thread
@@ -946,7 +956,7 @@ class GCodeExecutor(GCodeCommands):
                 self.tool.set_feedrate(self.F/40.0)
 
             # feed path motion to robot and move using a separate thread
-            thread = self.robot.execute_async_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion) # Just starts move in a thread with some initialization
+            thread = self.robot.execute_threaded_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion) # Just starts move in a thread with some initialization
 
             print("waiting on thread to finish motion")
             # Wait here for path motion to finish and join the thread
@@ -1071,72 +1081,62 @@ class GCodeExecutor(GCodeCommands):
         -----
 
         '''
-        z = 0
-        extrusion_distance = 0
-        current_feedrate = 0
+        
+        self.reset_parameters()
+
+        # arrays for plotting data
         x_coordinates = []
         y_coordinates = []
         z_coordinates = []
         colors = []
 
         print("May have issues with 1 million+ points...")
+        # Points here is vertices in the plot and corresponds to G-code lines
 
-        for element in self.list_of_intervals:
-            if self.read_param(element[0],'E') != False:
-                extrusion_distance = self.read_param(element[0],'E')
-
-            if self.read_param(element[0],'Z') != False:
-                z = self.read_param(element[0],'Z')
-                self.Z = z
-
-            if self.read_param(element[0],'F') != False:
-                greyscale_feedrate = self.read_param(element[0],'F')#/self.Fmax[1]
-
-            if self.read_command(element[0]) == 'G1':
-                try: # front-pad the start position to the coming series of moves
+        for interval in self.list_of_intervals:
+            if self.read_command(interval[0]) == 'G1':
+                if (self.read_param(interval[0],'E') != False) and (self.read_param(interval[0],'E') > self.E) and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
+                    # front-pad the start position to the coming series of moves
                     x_coordinates.append(self.X * 1000)
                     y_coordinates.append(self.Y * 1000)
                     z_coordinates.append(self.Z * 1000)
-                    colors.append(greyscale_feedrate)
-                except: # For initial G1 commands before any x-y coodrinates have been set
-                    pass
+                    colors.append(self.F)
 
-                for point in range(element[0],element[1]+1):
-                    if self.read_param(point,'X') != False and self.read_param(point,'Y') != False:
-                        x = self.read_param(point,'X')
-                        y = self.read_param(point,'Y')
+                    # if x_coordinates[-1] == x_coordinates[-3] and y_coordinates[-1] == y_coordinates[-3] and z_coordinates[-1] == z_coordinates[-3]:
+                    #     x_coordinates = x_coordinates[:-2]
+                    #     y_coordinates = y_coordinates[:-2]
+                    #     z_coordinates = z_coordinates[:-2]
+                    #     colors = colors[:-2]
 
-                        self.X = x
-                        self.Y = y
+                for point in range(interval[0],interval[1]+1):
+                    if (self.read_param(point,'E') != False) and (self.read_param(point,'E') > self.E) and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
+                        for key in self.gcodelines[point].params:
+                            self.__dict__[key] = self.read_param(point,key)
 
-                        if self.read_param(point,'Z') != False:
-                            z = self.read_param(point,'Z')
+                        x_coordinates.append(self.X * 1000)
+                        y_coordinates.append(self.Y * 1000)
+                        z_coordinates.append(self.Z * 1000)
+                        colors.append(self.F)
 
-                        if self.read_param(point,'E') > extrusion_distance and self.read_param(point,'E') != False:
-                            x_coordinates.append(x * 1000)
-                            y_coordinates.append(y * 1000)
-                            z_coordinates.append(z * 1000)
-                            colors.append(greyscale_feedrate)
+                    for key in self.gcodelines[point].params:
+                        self.__dict__[key] = self.read_param(point,key)
 
-                            extrusion_distance = self.read_param(point,'E')
-
+                # To separate trajectories in the plot
                 x_coordinates.append(None)
                 y_coordinates.append(None)
                 z_coordinates.append(None)
                 colors.append(0)
 
-            elif self.read_command(element[0]) == 'G0':
-                for point in range(element[0],element[1]+1):
-                    if self.read_param(point,'X') != False and self.read_param(point,'Y') != False:
-                        x = self.read_param(point,'X')
-                        y = self.read_param(point,'Y')
+            elif self.read_command(interval[0]) == 'G0':
+                for point in range(interval[0],interval[1]+1):
+                    for key in self.gcodelines[point].params:
+                        self.__dict__[key] = self.read_param(point,key)
 
-                        self.X = x
-                        self.Y = y
-
-                        if self.read_param(point,'Z') != False:
-                            z = self.read_param(point,'Z')
-
+            else:
+                for point in range(interval[0],interval[1]+1):
+                    for key in self.gcodelines[point].params:
+                        if self.read_param(point,'X') != False or self.read_param(point,'Y') != False or self.read_param(point,'Z') != False or self.read_param(point,'E') != False or self.read_param(point,'F') != False:
+                            self.__dict__[key] = self.read_param(point,key)
 
         largest_axis = max([self.Xmax[1]-self.Xmax[0],self.Ymax[1]-self.Ymax[0],self.Zmax[1]-self.Zmax[0]])
         axis_scale = [(self.Xmax[1]-self.Xmax[0])/largest_axis,(self.Ymax[1]-self.Ymax[0])/largest_axis,(self.Zmax[1]-self.Zmax[0])/largest_axis]
@@ -1145,7 +1145,7 @@ class GCodeExecutor(GCodeCommands):
             x=x_coordinates,y=y_coordinates,z=z_coordinates,
             mode="lines",
             line=dict(
-                width=6,
+                width=10,
                 color=colors,
                 cmin=0,
                 cmax=self.Fmax[1],
