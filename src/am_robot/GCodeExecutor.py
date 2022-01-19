@@ -322,7 +322,6 @@ class GCodeExecutor(GCodeCommands):
         line_number = self.interval[1]+1
         interval = [line_number,line_number]
         while (line_number < self.number_of_lines):
-
             # Find dimensions of model
             if self.read_param(line_number,'X') != False:
                 self.set_extremes(self.read_param(line_number,'X'),'Xmax')
@@ -338,16 +337,15 @@ class GCodeExecutor(GCodeCommands):
             if self.read_command(line_number) != self.read_command(self.interval[1]+1):
                 interval = [self.interval[1]+1,line_number-1]
                 break
+
             # Check reversing of material extrusion
             elif self.read_param(line_number,'E') != False and self.read_param(line_number,'E') < self.get_param('E'):
                 interval = [self.interval[1]+1,line_number-1]
                 break
-            elif self.read_param(line_number-1,'E') != False and self.read_param(line_number,'E') == False:
-                interval = [self.interval[1]+1,line_number-1]
-                break
+
             elif self.read_param(line_number,'F') != False and self.read_param(line_number,'F') != self.get_param('F'): 
             # Check if this is wanted, or append this last x-y line to interval
-                self.set_param(line_number,'F')
+                #self.set_param(line_number,'F')
                 # Unsure if i need this check keys
                 # nr_keys = 0
                 # for key in self.gcodelines[line_number].params:
@@ -356,6 +354,11 @@ class GCodeExecutor(GCodeCommands):
                 interval = [self.interval[1]+1,line_number-1]
                 #         break
                 break
+
+            elif self.read_param(line_number-1,'E') != False and self.read_param(line_number,'E') == False and self.read_command(line_number-1) == 'G1':
+                interval = [self.interval[1]+1,line_number-1]
+                break
+
             else:
                 # Typically when the next line is just another X-Y coordinate
                 self.set_params(line_number)
@@ -364,6 +367,8 @@ class GCodeExecutor(GCodeCommands):
         if interval[1] < interval[0]:
             interval = [line_number,line_number]
             self.set_params(line_number)
+
+        print(interval)
 
         self.set_interval(interval)
         self.append_interval()
@@ -395,6 +400,7 @@ class GCodeExecutor(GCodeCommands):
         -----
 
         '''
+        # Add .gcode if not given
         filename = self.filename_
         file_extension = '.gcode'
         if file_extension not in filename:
@@ -402,8 +408,15 @@ class GCodeExecutor(GCodeCommands):
         folder = 'data'
         fullpath = os.path.join('.',folder,filename)
 
+        # Read file
         with open(fullpath,'r') as file:
-            self.gcodelines = GcodeParser(file.read()).lines
+            gcodedata = file.read()
+
+        # Change instances of "-." to "-0."
+        gcodedata = gcodedata.replace('-.','-0.')
+
+        # Parse lines into Dict object
+        self.gcodelines = GcodeParser(gcodedata).lines
 
         # gcode is in mm, change to m for robot
         for line in self.gcodelines:
@@ -1102,11 +1115,11 @@ class GCodeExecutor(GCodeCommands):
                     z_coordinates.append(self.Z * 1000)
                     colors.append(self.F)
 
-                    # if x_coordinates[-1] == x_coordinates[-3] and y_coordinates[-1] == y_coordinates[-3] and z_coordinates[-1] == z_coordinates[-3]:
-                    #     x_coordinates = x_coordinates[:-2]
-                    #     y_coordinates = y_coordinates[:-2]
-                    #     z_coordinates = z_coordinates[:-2]
-                    #     colors = colors[:-2]
+                    if x_coordinates[-1] == x_coordinates[-3] and y_coordinates[-1] == y_coordinates[-3] and z_coordinates[-1] == z_coordinates[-3]:
+                        x_coordinates = x_coordinates[:-2]
+                        y_coordinates = y_coordinates[:-2]
+                        z_coordinates = z_coordinates[:-2]
+                        colors = colors[:-2]
 
                 for point in range(interval[0],interval[1]+1):
                     if (self.read_param(point,'E') != False) and (self.read_param(point,'E') > self.E) and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
