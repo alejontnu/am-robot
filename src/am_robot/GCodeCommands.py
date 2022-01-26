@@ -29,7 +29,8 @@ class GCodeCommands():
         self.E_positioning = 'rel'
 
     def M84(self):
-        print("Disable motors - Not implemented")
+        print("Disable motors - Only disables extruder motor")
+        self.tool.set_feedrate(0.0)
 
     def M104(self):
         print("Setting hotend reference temperature")

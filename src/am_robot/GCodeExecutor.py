@@ -1158,7 +1158,7 @@ class GCodeExecutor(GCodeCommands):
             x=x_coordinates,y=y_coordinates,z=z_coordinates,
             mode="lines",
             line=dict(
-                width=10,
+                width=5,
                 color=colors,
                 cmin=0,
                 cmax=self.Fmax[1],
@@ -1168,7 +1168,7 @@ class GCodeExecutor(GCodeCommands):
                         text='Feedrate [mm/min]'
                     )
                 ),
-                colorscale=[[0,'rgb(255,0,0)'],[1,'rgb(0,0,255)']]
+                colorscale=[[0,'rgb(0,0,255)'],[1,'rgb(255,0,0)']]
                 ),
             connectgaps=False
             ))
