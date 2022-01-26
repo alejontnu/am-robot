@@ -359,7 +359,7 @@ class GCodeExecutor(GCodeCommands):
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
-            elif (line_number > self.interval[1]+1) and self.sharp_turn(line_number) == True:
+            elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/3.0:
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
@@ -692,13 +692,13 @@ class GCodeExecutor(GCodeCommands):
 
         return True
 
-    def sharp_turn(self,line_number):
+    def turn_angle(self,line_number):
         '''
         Check if trajectory sharply changes direction
         '''
-        prev_point = np.array([self.prev_X,self.prev_Y,self.prev_Z])
-        mid_point = np.array([self.X,self.Y,self.Z])
-        next_point = mid_point
+        prev_point = [self.prev_X,self.prev_Y,self.prev_Z]
+        mid_point = [self.X,self.Y,self.Z]
+        next_point = [self.X,self.Y,self.Z]
 
         if self.read_param(line_number,'X') != False:
             next_point[0] = (self.read_param(line_number,'X'))
@@ -707,18 +707,14 @@ class GCodeExecutor(GCodeCommands):
         if self.read_param(line_number,'Z') != False:
             next_point[2] = (self.read_param(line_number,'Z'))
 
-        print(prev_point)
-        print(mid_point)
-        print(next_point)
+        v1 = self.make_vector(np.array(prev_point),np.array(mid_point))
+        v2 = self.make_vector(np.array(mid_point),np.array(next_point))
 
-        print("past")
-
-        angle = self.angle_between(self.make_vector(prev_point,mid_point),self.make_vector(mid_point,next_point))
-        print(angle)
-        if angle > math.pi/3: # if more than 60 degrees turn
-            return True
+        if np.count_nonzero(v1) == 0 or np.count_nonzero(v2) == 0:
+            return 0.0 # No direction change
         else:
-            return False
+            angle = self.angle_between(v1,v2)
+            return angle
 
     def make_vector(self,start, end):
         return end - start
@@ -740,8 +736,6 @@ class GCodeExecutor(GCodeCommands):
         v1_u = self.unit_vector(v1)
         v2_u = self.unit_vector(v2)
         return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
-
-
 
     def make_waypoints(self,interval):
         '''
