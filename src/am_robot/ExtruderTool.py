@@ -99,7 +99,7 @@ class ExtruderTool(AbstractTool):
 
         '''
         packed = struct.pack('f',temperature)
-        self.ser.write(b'H'+packed) # + 4 bytes of number
+        #self.ser.write(b'H'+packed) # + 4 bytes of number
 
     def blink_led(self):
         '''

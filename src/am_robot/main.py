@@ -119,6 +119,7 @@ def main():
     print(f"Total time elapsed: {time_elapsed_total:.5f}s")
 
     if not args.skip_connection:
+        executor.tool.set_feedrate(0.0)
         executor.tool.disconnect()
 
 if __name__ == '__main__':

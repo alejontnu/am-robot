@@ -71,7 +71,7 @@ class FrankaRobot(AbstractRobot):
                 print("Connected to robot on host IP: " + self.host)
 
                 self.is_connected = True
-                self.gripper = self.robot.get_gripper()
+                #self.gripper = self.robot.get_gripper()
 
         # Working area of robot
         self.radius = 0.855
@@ -200,6 +200,9 @@ class FrankaRobot(AbstractRobot):
 
 
         self.home_pose = self.read_current_pose()
+        self.robot.velocity_rel = 0.05
+        self.robot.acceleration_rel = 0.01
+        self.robot.jerk_rel = 0.02
 
     def read_current_pose(self):
         '''
@@ -217,7 +220,7 @@ class FrankaRobot(AbstractRobot):
         return self.robot.current_pose()
 
     def recover_from_errors(self):
-        self.robot.recover_from_error()
+        self.robot.recover_from_errors()
 
     def set_dynamic_rel(self,value):
         self.robot.set_dynamic_rel(value)
@@ -243,8 +246,13 @@ class FrankaRobot(AbstractRobot):
         else:
             self.robot.move(frame,motion,data)
 
-    def execute_threaded_move(self,frame=None,motion=None,data=None):
-        return self.robot.move_async(frame,motion,data)
+    def execute_threaded_move(self,frame=Affine(0.0,0.0,0.0,0.0,0.0,0.0),motion=None,data=None):
+        if data == None:
+            thread = self.robot.move_async(frame,motion)
+            return thread
+        else:
+            thread = self.robot.move_async(frame,motion,data)
+            return thread
 
     def make_linear_motion(self,affine):
         return LinearMotion(affine)

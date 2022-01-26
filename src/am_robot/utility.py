@@ -1,5 +1,4 @@
 
-
 class GeometryState: # G-commands, related to geometry, movement type, extrusion volume, etc
     def __init__(self,_gcommand,_x_pos,_y_pos,_z_pos,_ext_speed,_ext_volume,_radius,_i_length,_j_length,_move_type):
         self.gcommand = _gcommand
