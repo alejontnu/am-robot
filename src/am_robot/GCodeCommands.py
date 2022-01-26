@@ -1,4 +1,5 @@
 import time
+import numpy as np
 
 class GCodeCommands():
     '''
@@ -48,6 +49,7 @@ class GCodeCommands():
 
     def M109(self):
         print("Setting and waiting for hotend temperature")
+        return 0
         if self.read_param(self.interval[0],'S') != False:
             self.tool.set_nozzletemp(self.read_param(self.interval[0],'S'))
             while self.tool.read_temperature() < self.read_param(self.interval[0],'S')-5:
@@ -70,10 +72,67 @@ class GCodeCommands():
     ''' G-command methods '''
 
     def G0(self):
-        print("linear non-extrusion move - Not implemented (Robot specific)")
+        print("linear non-extrusion move")
+        #if self.read_param(interval[0],'X') != False or self.read_param(interval[0],'Y') != False or self.read_param(interval[0],'Z') != False:
+        if self.read_param(self.interval[0],'X') != False and self.read_param(self.interval[0],'Y') != False:
+            motion = self.make_path(self.interval,0.01)
+            #self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
+
+            input("Press enter to start non-extrusion move...")
+            self.robot.execute_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion)
 
     def G1(self):
-        print("linear extrusion move - Not implemented (Robot specific)")
+        print("linear extrusion move")
+        if (self.read_param(self.interval[0],'X') != False) or (self.read_param(self.interval[0],'Y') != False) or (self.read_param(self.interval[0],'Z') != False):
+
+            # Make path trajectory
+            motion = self.make_path(self.interval,0.01) # PathMotion gives smooth movement compared to WayPointMovement
+
+            # set dynamic rel and relative max velocity based on feedrate
+            rel_velocity = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
+            if rel_velocity > 0.05:
+                self.robot.velocity_rel = 0.05
+            else:
+                self.robot.velocity_rel = rel_velocity
+            print(self.robot.velocity_rel)
+
+            # Accept check
+            #input("Press enter to start extrusion move move...")
+
+            start_time = time.time()
+
+            # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
+            if self.read_param(self.interval[0],'E') != False:
+                self.tool.set_feedrate(self.F/40.0)
+            # feed path motion to robot and move using a separate thread
+            thread = self.robot.execute_threaded_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion) # Just starts move in a thread with some initialization
+
+            print("waiting on thread to finish motion")
+            # Wait here for path motion to finish and join the thread
+            thread.join()
+
+            end_time = time.time()
+            print("path time elapsed:")
+            print(end_time - start_time)
+
+            # Thread done aka move done aka stop extrusion immidiately
+            self.tool.set_feedrate(0)
+            self.robot.recover_from_errors()
+
+        # Some slicers use G1 even for non extrusion moves... Example retraction of filament
+        elif self.read_param(self.interval[0],'E') != False:
+            # Target extrusion distance and time elapsed at given feedrate
+            target_E = self.read_param(self.interval[0],'E')
+            sleep_time = self.tool.calculate_delta_t(target_E,self.E,self.F)
+
+            # set retraction/un-retraction feedrate
+            self.tool.set_feedrate(np.sign(sleep_time)*self.F/40.0)
+            # Sleep
+            time.sleep(abs(sleep_time))
+            # Stop retraction/un-retraction
+            self.tool.set_feedrate(0)
+
+        self.set_params(self.interval[1])
 
     def G2(self):
         print("Clockwise arc/circle extrusion move - Not implemented (Robot specific)")
@@ -96,7 +155,20 @@ class GCodeCommands():
         self.units = 'mm'
 
     def G28(self):
-        print("Auto home - Not implemented (Done pre-emptively)")
+        print("Auto home")
+        x = 0
+        y = 0
+        z = 0
+
+        # is params, move slightly above highest print height
+        nr_keys = 0
+        for key in self.gcodelines[self.interval[0]].params:
+            nr_keys = nr_keys + 1
+
+
+        if nr_keys == 0:
+            # if not params move to default 0,0,0 start position
+            self.move_to_point(x,y,z)
 
     def G29(self):
         print("Bed leveling - Not implemented (done pre-emptively)")
