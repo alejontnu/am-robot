@@ -395,7 +395,7 @@ class GCodeExecutor(GCodeCommands):
 
     def load_gcode(self,lines):
         '''
-        Finds the 'filename.gcode' file in the data folder and parses the file using GcodeParser. X, Y, Z parameters are converted to the size used by the robot, i.e. G-code millimeter is changed to robot meter. Calls find_intervals() to starts pre-processing of G-code.
+        Finds the 'filename' file with '.gcode' extension in the data folder and parses the file using GcodeParser. X, Y, Z parameters are converted to the size used by the robot, i.e. G-code millimeter is changed to robot meter. Calls find_intervals() to starts pre-processing of G-code.
 
         Input:
         -----
@@ -405,18 +405,28 @@ class GCodeExecutor(GCodeCommands):
 
         '''
         # Add .gcode if not given
-        filename = self.filename_
-        file_extension = '.gcode'
-        if file_extension not in filename:
-            filename = filename + '.gcode'
-        folder = 'data'
-        fullpath = os.path.join('.',folder,filename)
+        filename, extension = os.path.splitext(self.filename_)
+        if extension == '':
+            print("No file extension given, assuming '.gcode'")
+            extension = '.gcode'
+        elif extension.lower() == '.gcode':
+            filename, extension = os.path.splitext(self.filename_)
+        else:
+            print("File extension not empty or .gcode")
+            input("finding for '.gcode' instead. Enter to continue...")
+            extension = '.gcode'
+
+        cwd = os.getcwd()
+
+        for root, dirs, files in os.walk(cwd):
+            if filename+extension in files:
+                fullpath = os.path.join(root, filename+extension)
 
         # Read file
         with open(fullpath,'r') as file:
             gcodedata = file.read()
 
-        # Change instances of "-." to "-0."
+        # Change instances of "-." to "-0.". Was causing issues with visualization plot
         gcodedata = gcodedata.replace('-.','-0.')
 
         # Parse lines into Dict object
@@ -461,8 +471,9 @@ class GCodeExecutor(GCodeCommands):
             self.gcode_home_pose = self.robot.read_current_pose()
             self.gcode_home_pose_vec = self.gcode_home_pose.vector()
             for i in range(3):
-                self.gcode_home_pose_vec[i] = self.gcode_home_pose_vec[i] + self.robot.tool_frame_vector[i] + 0.0015
+                self.gcode_home_pose_vec[i] = self.gcode_home_pose_vec[i] + self.robot.tool_frame_vector[i]
 
+            print("home postition vector")
             print(self.gcode_home_pose_vec)
 
             # Can potentially add collision detection here to further improve home point. 
@@ -558,15 +569,12 @@ class GCodeExecutor(GCodeCommands):
                     print(f"Did not hit anything for probe location x: {axis1}, y: {axis2}")
                     contact_found = False
 
-
         if contact_found:
             self.bed_points = bed_grid
             self.calculate_bed_surface_plane()
             self.gcode_home_pose_vec = bed_grid[1][1]
             for i in range(3):
                 self.gcode_home_pose_vec[i] = self.gcode_home_pose_vec[i] + self.robot.tool_frame_vector[i]
-                if i == 2:
-                    self.gcode_home_pose_vec[i] = self.gcode_home_pose_vec[i] + 0.01
             print(f"Gcode home location: {self.gcode_home_pose_vec}")
         else:
             print("One or more bed points was not found")
