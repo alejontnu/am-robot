@@ -90,14 +90,10 @@ class GCodeCommands():
 
             # set dynamic rel and relative max velocity based on feedrate
             rel_velocity = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
-            if rel_velocity > 0.05:
-                self.robot.velocity_rel = 0.05
-            else:
-                self.robot.velocity_rel = rel_velocity
-            print(self.robot.velocity_rel)
-
-            # Accept check
-            #input("Press enter to start extrusion move move...")
+            # if rel_velocity > 0.05:
+            #     self.robot.set_velocity_rel(0.05)
+            # else:
+            self.robot.set_velocity_rel(rel_velocity)
 
             start_time = time.time()
 

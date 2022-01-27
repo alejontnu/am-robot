@@ -163,46 +163,32 @@ class FrankaRobot(AbstractRobot):
         -----
 
         '''
-        self.robot.set_default_behavior()
+        self.set_default_behavior()
 
         # Recover from errors
-        self.robot.recover_from_errors()
+        self.recover_from_errors()
 
         # Set acceleration and velocity reduction
         self.robot_dynamic_rel = 0.1
-        self.robot.set_dynamic_rel(self.robot_dynamic_rel) # Default 0.1
+        self.set_dynamic_rel(self.robot_dynamic_rel) # Default 0.1
 
         # Defining tool_frame
         self.tool_frame = Affine(-0.03414,-0.0111,-0.09119,0.0,-math.pi/4,0.0)
         self.tool_frame_vector = [-0.03414,-0.0111,-0.09119, 0.0,-math.pi/4,0.0]
 
-        #self.tool_frame = Affine(0.0,0.0,0.0,0.0, 0,0,0.0)
-        #self.tool_frame_vector = [0.0,0.0,0.0, 0.0, 0.0, 0.0]
+        # Joint motion to set initial configuration
+        self.robot.move(JointMotion([0.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
 
-        using_forward = True
+        self.robot_home_pose = Affine(0.250, 0.0, 0.05) # NB not same as auto-home extruder
+        self.robot_home_pose_vec = [0.250,0.0,0.0]
 
-        if using_forward: # printing in front of robot in x direction
-            # Joint motion to set initial configuration
-            self.robot.move(JointMotion([0.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
-
-            self.robot_home_pose = Affine(0.250, 0.0, 0.0) # NB not same as auto-home extruder
-            self.robot_home_pose_vec = [0.250,0.0,0.0]
-
-            self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
-
-        else:
-            self.robot.move(JointMotion([-math.pi/2.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
-
-            self.robot_home_pose = Affine(0.0, -0.450, 0.05) # NB not same as auto-home extruder
-            self.robot_home_pose_vec = [0.0,0.-0.450,0.05]
-            
-            self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
-
+        # Position tool head
+        self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
 
         self.home_pose = self.read_current_pose()
-        self.robot.velocity_rel = 0.05
-        self.robot.acceleration_rel = 0.01
-        self.robot.jerk_rel = 0.02
+        self.set_velocity_rel(0.05)
+        self.set_acceleration_rel(0.05)
+        self.set_jerk_rel(0.02)
 
     def read_current_pose(self):
         '''
@@ -219,6 +205,9 @@ class FrankaRobot(AbstractRobot):
         '''
         return self.robot.current_pose()
 
+    def set_default_behavior(self):
+        self.robot.set_default_behavior()
+
     def recover_from_errors(self):
         self.robot.recover_from_errors()
 
@@ -226,13 +215,13 @@ class FrankaRobot(AbstractRobot):
         self.robot.set_dynamic_rel(value)
 
     def set_velocity_rel(self,value):
-        self.robot.velocity_rel(value)
+        self.robot.velocity_rel = value
 
     def set_acceleration_rel(self,value):
-        self.robot.acceleration_rel(value)
+        self.robot.acceleration_rel = value
 
     def set_jerk_rel(self,value):
-        self.robot.jerk_rel(value)
+        self.robot.jerk_rel = value
 
     def execute_move(self,frame=None,motion=None):
         if frame == None:
