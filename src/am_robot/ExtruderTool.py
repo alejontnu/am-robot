@@ -99,7 +99,7 @@ class ExtruderTool(AbstractTool):
 
         '''
         packed = struct.pack('f',temperature)
-        #self.ser.write(b'H'+packed) # + 4 bytes of number
+        self.ser.write(b'H'+packed) # + 4 bytes of number
 
     def blink_led(self):
         '''
@@ -167,7 +167,7 @@ class ExtruderTool(AbstractTool):
                 return temperature
             else:
                 print("Value other than T read. Ignoring...")
-                time.sleep(1)
+                time.sleep(0.1)
 
     def read_extrusion_speed(self):
         '''
@@ -196,7 +196,7 @@ class ExtruderTool(AbstractTool):
                 return feedrate
             else:
                 print("Value other than E read. Ignoring...")
-                time.sleep(1)
+                time.sleep(0.1)
 
     def enable_periodic_updates(self):
         '''

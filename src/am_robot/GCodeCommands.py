@@ -79,7 +79,7 @@ class GCodeCommands():
             #self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
 
             input("Press enter to start non-extrusion move...")
-            self.robot.execute_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion)
+            self.robot.execute_move(frame=self.robot.tool_frame,motion=motion)
 
     def G1(self):
         print("linear extrusion move")
@@ -90,9 +90,6 @@ class GCodeCommands():
 
             # set dynamic rel and relative max velocity based on feedrate
             rel_velocity = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
-            # if rel_velocity > 0.05:
-            #     self.robot.set_velocity_rel(0.05)
-            # else:
             self.robot.set_velocity_rel(rel_velocity)
 
             start_time = time.time()
@@ -101,7 +98,7 @@ class GCodeCommands():
             if self.read_param(self.interval[0],'E') != False:
                 self.tool.set_feedrate(self.F/40.0)
             # feed path motion to robot and move using a separate thread
-            thread = self.robot.execute_threaded_move(frame=self.robot.make_affine_object(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),motion=motion) # Just starts move in a thread with some initialization
+            thread = self.robot.execute_threaded_move(frame=self.robot.tool_frame,motion=motion) # Just starts move in a thread with some initialization
 
             print("waiting on thread to finish motion")
             # Wait here for path motion to finish and join the thread
@@ -152,9 +149,9 @@ class GCodeCommands():
 
     def G28(self):
         print("Auto home")
-        x = 0
-        y = 0
-        z = 0
+        x = 0.0
+        y = 0.0
+        z = 0.0
 
         # is params, move slightly above highest print height
         nr_keys = 0
@@ -165,6 +162,8 @@ class GCodeCommands():
         if nr_keys == 0:
             # if not params move to default 0,0,0 start position
             self.move_to_point(x,y,z)
+        else:
+            self.move_to_point(self.Xmax[0],self.Ymax[0],self.Zmax[1]+0.02)
 
     def G29(self):
         print("Bed leveling - Not implemented (done pre-emptively)")

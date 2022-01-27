@@ -470,11 +470,6 @@ class GCodeExecutor(GCodeCommands):
 
             self.gcode_home_pose = self.robot.read_current_pose()
             self.gcode_home_pose_vec = self.gcode_home_pose.vector()
-            for i in range(3):
-                self.gcode_home_pose_vec[i] = self.gcode_home_pose_vec[i] + self.robot.tool_frame_vector[i]
-
-            print("home postition vector")
-            print(self.gcode_home_pose_vec)
 
             # Can potentially add collision detection here to further improve home point. 
             # But new (0,0) point can be chosen from mid point of bed probing afterwards
@@ -535,24 +530,23 @@ class GCodeExecutor(GCodeCommands):
 
                 self.robot.set_dynamic_rel(0.1)
                 # Move to probe location
-                #m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2],b=-self.robot.tool_frame_vector[4]))
-                #self.robot.robot.move(Affine(self.robot.tool_frame_vector[0],self.robot.tool_frame_vector[1],self.robot.tool_frame_vector[2]),m1)
-                #m1 = LinearMotion(Affine(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2]+0.05))
-                m1 = self.robot.make_linear_motion(self.robot.make_affine_object(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2]+0.05))
+                affine1 = self.robot.make_affine_object(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2]+0.05)
+                m1 = self.robot.make_linear_motion(affine1)
                 self.robot.execute_move(frame=self.robot.tool_frame,motion=m1)
 
                 # Reset data reaction motion, may need to tweek trigger force when extruder is mounted
-                #d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -2.0))
-                d2 = self.robot.make_Z_reaction_data(-2.0)
+                #d2 = self.robot.make_Z_reaction_data(-2.0)
+                d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -5.0))
+                #d2 = MotionData().with_reaction(Reaction(Measure.ForceXYZNorm > 15.0))
 
+                # Reduce dynamics for probing
                 self.robot.set_dynamic_rel(0.02)
 
                 # Move slowly towards print bed
-                m2 = self.robot.make_linear_relative_motion(self.robot.make_affine_object(0.08,0.0,-0.08))
-                #m2 = LinearRelativeMotion(Affine(0.08,0.0,-0.08))
-                #m2 = LinearRelativeMotion(Affine(-0.04,0.0,-0.04))
-                #self.robot.robot.move(m2, d2)
-                self.robot.execute_reaction_move(frame=self.robot.tool_frame,motion=m2,data=d2)
+                affine2 = self.robot.make_affine_object(0.1,0.0,-0.1)
+                m2 = self.robot.make_linear_relative_motion(affine2)
+                self.robot.execute_reaction_move(motion=m2,data=d2)
+                #self.robot.robot.move(m2,d2)
 
                 # Check if the reaction was triggered
                 if d2.did_break:
@@ -573,8 +567,6 @@ class GCodeExecutor(GCodeCommands):
             self.bed_points = bed_grid
             self.calculate_bed_surface_plane()
             self.gcode_home_pose_vec = bed_grid[1][1]
-            for i in range(3):
-                self.gcode_home_pose_vec[i] = self.gcode_home_pose_vec[i] + self.robot.tool_frame_vector[i]
             print(f"Gcode home location: {self.gcode_home_pose_vec}")
         else:
             print("One or more bed points was not found")
@@ -600,7 +592,7 @@ class GCodeExecutor(GCodeCommands):
 
         '''
         # Points
-        A = self.bed_points[1][1]
+        A = self.bed_points[0][0]
         B = self.bed_points[2][0]
         C = self.bed_points[0][2]
 
@@ -766,7 +758,6 @@ class GCodeExecutor(GCodeCommands):
             affine = self.robot.make_affine_object(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
             waypoint = self.robot.make_waypoint(affine)
             waypoints.append(waypoint)
-            #waypoints.append(Waypoint(Affine(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)))
         return waypoints
 
     def make_path(self,interval,corner_blending):
@@ -791,7 +782,7 @@ class GCodeExecutor(GCodeCommands):
                 if key == 'X' or key == 'Y' or key == 'Z':
                     self.__dict__[key] = self.read_param(point,key)
             z_compensation = self.vertical_bed_level_compensation((self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
-            affine = self.robot.make_affine_object(self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation,a=-self.robot.tool_frame_vector[3],b=-self.robot.tool_frame_vector[4],c=-self.robot.tool_frame_vector[5])
+            affine = self.robot.make_affine_object(self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
             path_points.append(affine)
         path = self.robot.make_path_motion(path_points,corner_blending)
         return path
@@ -816,7 +807,7 @@ class GCodeExecutor(GCodeCommands):
     def run_code_segments(self):
         for interval in self.list_of_intervals:
             line = interval[0]
-            progress = math.floor(float((line/(self.number_of_lines-1.0))))
+            progress = math.floor(line/(self.number_of_lines - 1.0))
             print(f"Current progress is {progress}%")
             self.interval = interval
             self.run_code_segment()

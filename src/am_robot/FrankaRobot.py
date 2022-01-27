@@ -173,26 +173,30 @@ class FrankaRobot(AbstractRobot):
         self.set_dynamic_rel(self.robot_dynamic_rel) # Default 0.1
 
         # Defining tool_frame
-        self.tool_frame = Affine(-0.03414,-0.0111,-0.09119,0.0,-math.pi/4,0.0)
-        self.tool_frame_vector = [-0.03414,-0.0111,-0.09119, 0.0,-math.pi/4,0.0]
+        self.tool_frame = Affine(0.03414,-0.0111,-0.09119,0.0,-math.pi/4,0.0)
+        self.tool_frame_vector = [0.03414,-0.0111,-0.09119, 0.0,-math.pi/4,0.0]
 
         # Joint motion to set initial configuration
         self.robot.move(JointMotion([0.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
 
-        self.robot_home_pose = Affine(0.250, 0.0, 0.05) # NB not same as auto-home extruder
-        self.robot_home_pose_vec = [0.250,0.0,0.0]
+        self.robot_home_pose = Affine(0.350, 0.0, 0.0) # NB not same as auto-home extruder
+        self.robot_home_pose_vec = [0.350,0.0,0.0]
 
         # Position tool head
-        self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
+        # self.robot.move(LinearMotion(self.robot_home_pose))
+        # self.robot.move(Affine(-0.0,-0.0,-0.0,0.0,-math.pi/4,0.0),LinearMotion(self.robot_home_pose))
+        # self.robot.move(Affine(-0.0,-0.0,-0.09119,0.0,-math.pi/4,0.0),LinearMotion(self.robot_home_pose))
+        self.robot.move(self.tool_frame,LinearMotion(self.robot_home_pose))
 
         self.home_pose = self.read_current_pose()
+        print(self.home_pose.vector())
         self.set_velocity_rel(0.05)
         self.set_acceleration_rel(0.05)
         self.set_jerk_rel(0.02)
 
     def read_current_pose(self):
         '''
-        Return the current pose of the robot
+        Return the current pose of the robot taking the tool_frame into account
 
         Input:
         -----
@@ -203,7 +207,7 @@ class FrankaRobot(AbstractRobot):
             The pose of the robot as Frankx' Affine object type
 
         '''
-        return self.robot.current_pose()
+        return self.robot.current_pose(self.tool_frame)
 
     def set_default_behavior(self):
         self.robot.set_default_behavior()
