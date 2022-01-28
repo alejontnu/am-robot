@@ -828,8 +828,7 @@ class GCodeExecutor(GCodeCommands):
         # Handle different M (machine) commands
         if command[0] == 'M':
             # Call method for each M-command
-            #getattr(self,command,getattr(self,'default'))()
-            pass
+            getattr(self,command,getattr(self,'default'))()
 
         elif command[0] == 'G':
 
@@ -844,7 +843,7 @@ class GCodeExecutor(GCodeCommands):
             getattr(self,command,getattr(self,'default'))()
 
         else:
-            print("Command other than M or G... Silently passing")
+            print(f"Command other than M or G... Silently passing on command {command}")
             pass 
 
     def visualize_bed_mesh(self):
@@ -862,9 +861,9 @@ class GCodeExecutor(GCodeCommands):
             bed_points = self.bed_points
         except:
             print("No bed points found, using default flat 3 x 3 surface")
-            bed_points = [[[0.2,0.2,0.01],[0,0.2,0],[-0.2,0.2,-0.01]],
-                        [[0.2,0,0],[0,0,-0.005],[-0.2,0,-0.015]],
-                        [[0.2,-0.2,-0.01],[0,-0.2,-0.015],[-0.2,-0.2,-0.02]]]
+            bed_points = [[[0.2,0.2,0.0],[0,0.2,0],[-0.2,0.2,0.0]],
+                        [[0.2,0,0],[0,0,0.0],[-0.2,0,0.0]],
+                        [[0.2,-0.2,0.0],[0,-0.2,0.0],[-0.2,-0.2,0.0]]]
 
         x_axis = len(bed_points)
         y_axis = len(bed_points[0])
