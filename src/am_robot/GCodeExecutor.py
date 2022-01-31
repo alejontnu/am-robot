@@ -359,7 +359,7 @@ class GCodeExecutor(GCodeCommands):
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
-            elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/4.0: # An overall turning radius would maybe be better
+            elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/6.0: # An overall turning radius would maybe be better
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
@@ -535,7 +535,7 @@ class GCodeExecutor(GCodeCommands):
                 self.robot.execute_move(frame=self.robot.tool_frame,motion=m1)
 
                 # Reset data reaction motion, may need to tweek trigger force when extruder is mounted
-                #d2 = self.robot.make_Z_reaction_data(-2.0)
+                #d2 = self.robot.make_Z_reaction_data(-5.0)
                 d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -5.0))
                 #d2 = MotionData().with_reaction(Reaction(Measure.ForceXYZNorm > 15.0))
 
@@ -546,7 +546,6 @@ class GCodeExecutor(GCodeCommands):
                 affine2 = self.robot.make_affine_object(0.1,0.0,-0.1)
                 m2 = self.robot.make_linear_relative_motion(affine2)
                 self.robot.execute_reaction_move(motion=m2,data=d2)
-                #self.robot.robot.move(m2,d2)
 
                 # Check if the reaction was triggered
                 if d2.did_break:
@@ -805,10 +804,12 @@ class GCodeExecutor(GCodeCommands):
         return self.read_param(line_number,'X') + self.gcode_home_pose_vec[0],self.read_param(line_number,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation
 
     def run_code_segments(self):
+        prev_progress = 0
         for interval in self.list_of_intervals:
-            line = interval[0]
-            progress = math.floor(line/(self.number_of_lines - 1.0))
-            print(f"Current progress is {progress}%")
+            progress = math.floor((100 * interval[0])/(self.number_of_lines - 1.0))
+            if progress > prev_progress:
+                print(f"Current progress is {progress}%")
+                prev_progress = progress
             self.interval = interval
             self.run_code_segment()
 
@@ -827,7 +828,7 @@ class GCodeExecutor(GCodeCommands):
         command = self.read_command(self.interval[0])
         # Handle different M (machine) commands
         if command[0] == 'M':
-            # Call method for each M-command
+            # Call method for each M-command (M79(),M42(), etc)
             getattr(self,command,getattr(self,'default'))()
 
         elif command[0] == 'G':
@@ -840,6 +841,7 @@ class GCodeExecutor(GCodeCommands):
             if self.read_param(self.interval[0],'F') != False:
                 self.F = self.read_param(self.interval[0],'F')
 
+            # Call method for G-command
             getattr(self,command,getattr(self,'default'))()
 
         else:

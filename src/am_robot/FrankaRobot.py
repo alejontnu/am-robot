@@ -179,8 +179,8 @@ class FrankaRobot(AbstractRobot):
         # Joint motion to set initial configuration
         self.robot.move(JointMotion([0.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
 
-        self.robot_home_pose = Affine(0.350, 0.0, 0.0) # NB not same as auto-home extruder
-        self.robot_home_pose_vec = [0.350,0.0,0.0]
+        self.robot_home_pose = Affine(0.350, 0.0, -0.098) # NB not same as auto-home extruder
+        self.robot_home_pose_vec = [0.350,0.0,-0.098]
 
         # Position tool head
         # self.robot.move(LinearMotion(self.robot_home_pose))

@@ -6,11 +6,10 @@
 ; solid infill extrusion width = 0.87mm (10.05mm^3/s)
 ; top infill extrusion width = 0.87mm (7.54mm^3/s)
 
-M107
-M104 S200 ; set temperature
 G28 ; home all axes
 G1 Z5 F5000 ; lift nozzle
-
+M107
+M104 S200 ; set temperature
 ; Filament gcode
 
 M109 S200 ; set temperature and wait for it to be reached

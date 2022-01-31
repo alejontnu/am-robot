@@ -153,21 +153,24 @@ class ExtruderTool(AbstractTool):
             Temperature of hotend in Celsius
 
         '''
-        read_temp = True
-        while read_temp:
-            #self.ser.write(b'T')
-            b = self.ser.read(5)
+        while True:
+            self.ser.write(b'T')
+            b = self.ser.read(10)
 
-            letter = b[0]
+            letter1 = b[0]
+            letter2 = b[5]
 
-            if letter == 84:
+            if letter1 == 84:
                 [temperature] = struct.unpack('f',b[1:5])
                 print(f"Temperature is {temperature} degree celsius")
-                read_temp = False
+                return temperature
+            elif letter2 == 84:
+                [temperature] = struct.unpack('f',b[6:10])
+                print(f"Temperature is {temperature} degree celsius")
                 return temperature
             else:
                 print("Value other than T read. Ignoring...")
-                time.sleep(0.1)
+                time.sleep(1)
 
     def read_extrusion_speed(self):
         '''
