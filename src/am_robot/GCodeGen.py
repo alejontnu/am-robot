@@ -40,8 +40,8 @@ class GCodeGen():
 
     def calculate_next_point(self,t):
         self.next_command = 'G1'
-        self.next_point = [3.0,4.0,2.0]
-        self.next_params = ['X','Y','Z']
+        self.next_point = [3.0,4.0,2.0,1800]
+        self.next_params = ['X','Y','Z','F']
         self.next_comment = ''
 
     def format_string(self):
