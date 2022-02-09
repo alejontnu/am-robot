@@ -949,11 +949,11 @@ class GCodeExecutor(GCodeCommands):
                     z_coordinates.append(self.Z * 1000)
                     colors.append(self.F)
 
-                    if x_coordinates[-1] == x_coordinates[-3] and y_coordinates[-1] == y_coordinates[-3] and z_coordinates[-1] == z_coordinates[-3]:
-                        x_coordinates = x_coordinates[:-2]
-                        y_coordinates = y_coordinates[:-2]
-                        z_coordinates = z_coordinates[:-2]
-                        colors = colors[:-2]
+                    # if x_coordinates[-1] == x_coordinates[-3] and y_coordinates[-1] == y_coordinates[-3] and z_coordinates[-1] == z_coordinates[-3]:
+                    #     x_coordinates = x_coordinates[:-2]
+                    #     y_coordinates = y_coordinates[:-2]
+                    #     z_coordinates = z_coordinates[:-2]
+                    #     colors = colors[:-2]
 
                 for point in range(interval[0],interval[1]+1):
                     if (self.read_param(point,'E') != False) and (self.read_param(point,'E') > self.E) and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):

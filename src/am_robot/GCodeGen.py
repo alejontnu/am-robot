@@ -1,5 +1,5 @@
 import argparse
-from math import floor
+from math import floor, cos, sin
 import os
 
 class GCodeGen():
@@ -40,8 +40,16 @@ class GCodeGen():
 
     def calculate_next_point(self,t):
         self.next_command = 'G1'
-        self.next_point = [3.0,4.0,2.0,1800]
-        self.next_params = ['X','Y','Z','F']
+        if True:
+            x = round(3*cos(0.1*t),3)
+            y = round(3*sin(0.1*t),3)
+            z = round(0.04*t,3)
+            f = 1800
+            e = round(0.02*t,5)
+            self.next_point = [x,y,z,f,e]
+        else:
+            self.next_point = [3.0,4.0,2.0,1800,0]
+        self.next_params = ['X','Y','Z','F','E']
         self.next_comment = ''
 
     def format_string(self):
@@ -53,6 +61,11 @@ class GCodeGen():
         if self.next_comment != '':
             string = string + ' ; ' + self.next_comment
         self.line = string
+
+    def read_function(self):
+        for variable in self.equation_of_motion:
+            var_length = len(variable)
+            
 
 
 
@@ -71,7 +84,7 @@ def main():
     parser.add_argument('--func', default=['cos(t)','sin(t)','0.5*t'], type=list, help='Contineous time motion function as a string')
     parser.add_argument('--file',default='motion.gcode',type=str,help='String name of outut file')
     parser.add_argument('--time',default=10.0,type=float,help='Time frame of movement')
-    parser.add_argument('--dt',default=0.1,type=float,help='The size of a time step')
+    parser.add_argument('--dt',default=0.01,type=float,help='The size of a time step')
 
     args = parser.parse_args()
 
