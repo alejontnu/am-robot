@@ -105,7 +105,14 @@ def main():
                     input("When happy with bed mesh press enter...")
 
                 time_elapsed_task = time.time()
-                executor.run_code_segments()
+
+                try:
+                    executor.run_code_segments()
+                except KeyboardInterrupt:
+                    executor.tool.set_feedrate(0.0)
+                    executor.tool.set_nozzletemp(0.0)
+                    exit()
+
                 time_elapsed_task = time.time() - time_elapsed_task
 
             else:
