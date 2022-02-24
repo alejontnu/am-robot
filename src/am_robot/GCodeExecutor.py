@@ -87,6 +87,7 @@ class GCodeExecutor(GCodeCommands):
         self.E = 0
         self.F = 0
         self.move_type = 'idle'
+        self.extrusion_mode = 'absolute'
 
         self.robot = robot
         self.tool = tool
@@ -340,6 +341,9 @@ class GCodeExecutor(GCodeCommands):
             if self.read_param(line_number,'F') != False:
                 self.set_extremes(self.read_param(line_number,'F'),'Fmax')
 
+            if self.read_command(line_number) == 'M83':
+                self.extrusion_mode = 'relative'
+
             # Find desired interval change condition
             # Check if next line has a command has changed
             if self.read_command(line_number) != self.read_command(self.interval[1]+1):
@@ -347,7 +351,7 @@ class GCodeExecutor(GCodeCommands):
                 break
 
             # Check reversing of material extrusion
-            elif self.read_param(line_number,'E') != False and self.read_param(line_number,'E') < self.get_param('E'):
+            elif self.read_param(line_number,'E') != False and self.read_param(line_number,'E') < self.get_param('E') and self.extrusion_mode == 'absolute':
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
@@ -373,9 +377,11 @@ class GCodeExecutor(GCodeCommands):
             interval = [line_number,line_number]
             self.set_prev_xyz()
             self.set_params(line_number)
-
+        if self.read_command(self.interval[1]+1) == 'G1':
+            print(interval)
         self.set_interval(interval)
         self.append_interval()
+        
 
     def find_intervals(self):
         '''
@@ -942,7 +948,7 @@ class GCodeExecutor(GCodeCommands):
 
         for interval in self.list_of_intervals:
             if self.read_command(interval[0]) == 'G1':
-                if (self.read_param(interval[0],'E') != False) and (self.read_param(interval[0],'E') > self.E) and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
+                if (self.read_param(interval[0],'E') != False) and ((self.read_param(interval[0],'E') > self.E) or self.extrusion_mode == 'relative') and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
                     # front-pad the start position to the coming series of moves
                     x_coordinates.append(self.X * 1000)
                     y_coordinates.append(self.Y * 1000)
@@ -956,7 +962,7 @@ class GCodeExecutor(GCodeCommands):
                     #     colors = colors[:-2]
 
                 for point in range(interval[0],interval[1]+1):
-                    if (self.read_param(point,'E') != False) and (self.read_param(point,'E') > self.E) and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
+                    if (self.read_param(point,'E') != False) and ((self.read_param(point,'E') > self.E) or self.extrusion_mode == 'relative') and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
                         for key in self.gcodelines[point].params:
                             self.__dict__[key] = self.read_param(point,key)
 
