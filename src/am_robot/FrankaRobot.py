@@ -262,8 +262,10 @@ class FrankaRobot(AbstractRobot):
     def make_affine_object(self, x, y, z, a=0, b=0, c=0):
         return Affine(x, y, z, a, b, c)
 
-    def make_waypoint(self, affine):
-        return Waypoint(affine)
+    def make_waypoint(self, affine,velocity_rel=1.0):
+        waypoint = Waypoint(affine)
+        waypoint["velocity_rel"] = velocity_rel
+        return waypoint
 
     def make_path_motion(self, path_points, blending_distance):
         return PathMotion(path_points, blend_max_distance=blending_distance)

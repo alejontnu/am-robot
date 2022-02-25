@@ -328,6 +328,7 @@ class GCodeExecutor(GCodeCommands):
             if self.read_param(line_number,'F') is not False:
                 self.set_extremes(self.read_param(line_number,'F'),'Fmax')
 
+            # Set relative process speed to override default absolute
             if self.read_command(line_number) == 'M83':
                 self.extrusion_mode = 'relative'
 
@@ -342,14 +343,17 @@ class GCodeExecutor(GCodeCommands):
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
+            # Check for change in process speed
             elif self.read_param(line_number,'F') is not False and self.read_param(line_number,'F') != self.get_param('F'):
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
+            # Check if extrusion should stop
             elif self.read_param(line_number-1,'E') is not False and self.read_param(line_number,'E') is False and self.read_command(line_number-1) == 'G1':
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
+            # Check the angle between consecutive position vectors
             elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/6.0:  # An overall turning radius would maybe be better
                 interval = [self.interval[1]+1,line_number-1]
                 break
@@ -722,7 +726,7 @@ class GCodeExecutor(GCodeCommands):
         """
         v1_u = self.unit_vector(v1)
         v2_u = self.unit_vector(v2)
-        return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+        return np.arccos(np.clip(np.dot(v1_u, v2_u), -3.0, 3.0))
 
     def make_waypoints(self,interval):
         '''
@@ -740,10 +744,28 @@ class GCodeExecutor(GCodeCommands):
 
         '''
         waypoints = []
+        affines = []
+        velocity_rels = []
         for point in range(interval[0],interval[1]+1):
-            z_compensation = self.vertical_bed_level_compensation((self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
-            affine = self.robot.make_affine_object(self.read_param(point,'X') + self.gcode_home_pose_vec[0],self.read_param(point,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
-            waypoint = self.robot.make_waypoint(affine)
+            if point >= interval[0] + 2:
+                angle = self.turn_angle(point)
+                if abs(angle) > math.pi/4:
+                    velocity_rels.append(0.02)
+                elif abs(angle) > math.pi/8:
+                    velocity_rels.append(0.04)
+                else:
+                    velocity_rels.append(0.06)
+            self.set_prev_xyz()
+            if point == interval[0] or point == interval[1]:
+                velocity_rels.append(0.6)
+            for key in self.gcodelines[point].params:
+                if key == 'X' or key == 'Y' or key == 'Z':
+                    self.__dict__[key] = self.read_param(point,key)
+            z_compensation = self.vertical_bed_level_compensation((self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
+            affine = self.robot.make_affine_object(self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
+            affines.append(affine)
+        for affine, velocity_rel in affines, velocity_rels:
+            waypoint = self.robot.make_waypoint(affine,velocity_rel)
             waypoints.append(waypoint)
         return waypoints
 
@@ -1026,6 +1048,7 @@ class GCodeExecutor(GCodeCommands):
         self.Z = 0
         self.F = 0
         self.E = 0
+        self.set_prev_xyz()
 
     def __str__(self):
         '''
