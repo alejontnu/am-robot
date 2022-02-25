@@ -2,7 +2,6 @@ class AbstractTool():
     def __init__(self,port):
         self.port = port
 
-
     def disconnect(self):
         print("Function 'disconnect()' missing in Specific tool Class, please implement...")
 
@@ -56,4 +55,3 @@ class AbstractTool():
 
     def calculate_max_rel_velocity(self,feedrate,robot_vel_constraint):
         print("Function 'calculate_max_rel_velocity(feedrate,robot_vel_constraint)' missing in Specific tool Class, please implement...")
-

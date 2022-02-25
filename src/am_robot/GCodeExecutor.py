@@ -9,20 +9,19 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from gcodeparser import GcodeParser
+from am_robot.GCodeCommands import GCodeCommands
 
 
 if sys.platform == 'linux':
     from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, PathMotion, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion
 elif sys.platform == 'win32':
     try:
-        from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, PathMotion, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion   
+        from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, PathMotion, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion
     except Exception as e:
         print(e)
     finally:
         print('Running on OS: ' + sys.platform)
 
-import am_robot
-from am_robot.GCodeCommands import GCodeCommands
 
 class GCodeExecutor(GCodeCommands):
     '''
@@ -74,7 +73,7 @@ class GCodeExecutor(GCodeCommands):
         super().__init__()
 
         self.filename_ = filename
-        self.interval = [0,0] # On the assumption that the first and second gcode command will allways be unique from eachother. This is a valid assumption
+        self.interval = [0,0]  # On the assumption that the first and second gcode command will allways be unique from eachother. This is a valid assumption
         self.list_of_intervals = []
 
         # initial values that should never be used before finding new values anyway
@@ -95,7 +94,6 @@ class GCodeExecutor(GCodeCommands):
         # default planar bed
         self.bed_plane_abcd = [0,0,0,0]
 
-
     def get_interval(self):
         '''
         Returns the current G-code interval
@@ -110,8 +108,7 @@ class GCodeExecutor(GCodeCommands):
         '''
         return self.interval
 
-
-    # Set the current interval of gcode lines
+    #  Set the current interval of gcode lines
     def set_interval(self,interval):
         '''
         Sets the G-code interval
@@ -127,7 +124,6 @@ class GCodeExecutor(GCodeCommands):
         '''
         self.interval = interval
 
-
     def append_interval(self):
         '''
         Appends current self.interval to a list of intervals
@@ -140,7 +136,6 @@ class GCodeExecutor(GCodeCommands):
 
         '''
         self.list_of_intervals.append(self.interval)
-
 
     def read_command(self,line_number):
         '''
@@ -159,7 +154,6 @@ class GCodeExecutor(GCodeCommands):
         '''
         return self.gcodelines[line_number].command[0] + str(self.gcodelines[line_number].command[1])
 
-
     def get_command(self):
         '''
         Returns the current command
@@ -175,7 +169,6 @@ class GCodeExecutor(GCodeCommands):
         '''
         return self.command
 
-
     def set_command(self):
         '''
         Sets the first command of the current interval
@@ -190,7 +183,6 @@ class GCodeExecutor(GCodeCommands):
         interval = self.interval
         command = self.read_command(interval[0])
         self.command = command
-
 
     # read given param from gcode
     def read_param(self,line_number,param):
@@ -215,8 +207,7 @@ class GCodeExecutor(GCodeCommands):
         except:
             return False
 
-
-    # get the current param from self
+    #  get the current param from self
     def get_param(self,param):
         '''
         Gets the current value of the parameter
@@ -234,8 +225,7 @@ class GCodeExecutor(GCodeCommands):
         '''
         return self.__dict__[param]
 
-
-    # set the current param to self
+    #  set the current param to self
     def set_param(self,line_number,param):
         '''
         Sets the parameter value from the given G-code line to the object
@@ -251,9 +241,8 @@ class GCodeExecutor(GCodeCommands):
         -----
 
         '''
-        if self.read_param(line_number,param) != False:
+        if self.read_param(line_number,param) is not False:
             self.__dict__[param] = self.read_param(line_number,param)
-
 
     def set_extremes(self,param,extreme):
         '''
@@ -299,7 +288,6 @@ class GCodeExecutor(GCodeCommands):
         self.prev_Y = self.Y
         self.prev_Z = self.Z
 
-
     # Find the next instance of retraction (NB may be 0mm retraction)
     def find_next_interval(self):
         '''
@@ -319,7 +307,6 @@ class GCodeExecutor(GCodeCommands):
         change on command change
         change on retraction/reversing of material/tool feedrate
 
-        
         '''
         if self.list_of_intervals == []:
             self.append_interval()
@@ -332,13 +319,13 @@ class GCodeExecutor(GCodeCommands):
         interval = [line_number,line_number]
         while (line_number < self.number_of_lines):
             # Find dimensions of model
-            if self.read_param(line_number,'X') != False:
+            if self.read_param(line_number,'X') is not False:
                 self.set_extremes(self.read_param(line_number,'X'),'Xmax')
-            if self.read_param(line_number,'Y') != False:
+            if self.read_param(line_number,'Y') is not False:
                 self.set_extremes(self.read_param(line_number,'Y'),'Ymax')
-            if self.read_param(line_number,'Z') != False:
+            if self.read_param(line_number,'Z') is not False:
                 self.set_extremes(self.read_param(line_number,'Z'),'Zmax')
-            if self.read_param(line_number,'F') != False:
+            if self.read_param(line_number,'F') is not False:
                 self.set_extremes(self.read_param(line_number,'F'),'Fmax')
 
             if self.read_command(line_number) == 'M83':
@@ -351,19 +338,19 @@ class GCodeExecutor(GCodeCommands):
                 break
 
             # Check reversing of material extrusion
-            elif self.read_param(line_number,'E') != False and self.read_param(line_number,'E') < self.get_param('E') and self.extrusion_mode == 'absolute':
+            elif self.read_param(line_number,'E') is not False and self.read_param(line_number,'E') < self.get_param('E') and self.extrusion_mode == 'absolute':
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
-            elif self.read_param(line_number,'F') != False and self.read_param(line_number,'F') != self.get_param('F'): 
+            elif self.read_param(line_number,'F') is not False and self.read_param(line_number,'F') != self.get_param('F'):
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
-            elif self.read_param(line_number-1,'E') != False and self.read_param(line_number,'E') == False and self.read_command(line_number-1) == 'G1':
+            elif self.read_param(line_number-1,'E') is not False and self.read_param(line_number,'E') is False and self.read_command(line_number-1) == 'G1':
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
-            elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/6.0: # An overall turning radius would maybe be better
+            elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/6.0:  # An overall turning radius would maybe be better
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
@@ -377,11 +364,10 @@ class GCodeExecutor(GCodeCommands):
             interval = [line_number,line_number]
             self.set_prev_xyz()
             self.set_params(line_number)
-        if self.read_command(self.interval[1]+1) == 'G1':
-            print(interval)
+        # if self.read_command(self.interval[1]+1) == 'G1':
+        #     print(interval)
         self.set_interval(interval)
         self.append_interval()
-        
 
     def find_intervals(self):
         '''
@@ -397,7 +383,6 @@ class GCodeExecutor(GCodeCommands):
         while self.number_of_lines > self.interval[1] + 1:
             self.find_next_interval()
         self.reset_parameters()
-
 
     def load_gcode(self,lines):
         '''
@@ -453,7 +438,6 @@ class GCodeExecutor(GCodeCommands):
             self.number_of_lines = lines
         self.find_intervals()
 
-
     def home_gcode(self,homing_type):
         '''
         Pauses to let the operator manually position the nozzle a small distance from the desired zero point of the G-code. A known point can also be used
@@ -480,15 +464,13 @@ class GCodeExecutor(GCodeCommands):
             # Can potentially add collision detection here to further improve home point. 
             # But new (0,0) point can be chosen from mid point of bed probing afterwards
 
-
         elif homing_type == 'known':
             print("Set gcode_home to this value. Home point assumed known")
             self.gcode_home_pose_vec = [0.48,0.0,0.0,-math.pi/3,0.0,0.0]
-
         else:
             print("Failed to home gcode zero... Check RobotMode input")
 
-    def move_to_point(self,x,y,z):#todo
+    def move_to_point(self,x,y,z):  # todo
         '''
         Move to desired location, using x,y,z and G-code home pose offset and tool_pose reference frame
 
@@ -525,9 +507,9 @@ class GCodeExecutor(GCodeCommands):
 
         '''
         print("probing...")
-        probe_locations_xy = [[[0.05,0.05],[0,0.05],[-0.05,0.05]],[[0.05,0],[0,0],[-0.05,0]],[[0.05,-0.05],[0,-0.05],[-0.05,-0.05]]] # relative to ghome_gcode
+        probe_locations_xy = [[[0.05,0.05],[0,0.05],[-0.05,0.05]],[[0.05,0],[0,0],[-0.05,0]],[[0.05,-0.05],[0,-0.05],[-0.05,-0.05]]]  # relative to ghome_gcode
 
-        bed_grid = [[[],[],[]],[[],[],[]],[[],[],[]]] # ugly ik
+        bed_grid = [[[],[],[]],[[],[],[]],[[],[],[]]]  # ugly ik
 
         contact_found = True
 
@@ -541,9 +523,9 @@ class GCodeExecutor(GCodeCommands):
                 self.robot.execute_move(frame=self.robot.tool_frame,motion=m1)
 
                 # Reset data reaction motion, may need to tweek trigger force when extruder is mounted
-                #d2 = self.robot.make_Z_reaction_data(-5.0)
+                # d2 = self.robot.make_Z_reaction_data(-5.0)
                 d2 = MotionData().with_reaction(Reaction(Measure.ForceZ < -5.0))
-                #d2 = MotionData().with_reaction(Reaction(Measure.ForceXYZNorm > 15.0))
+                # d2 = MotionData().with_reaction(Reaction(Measure.ForceXYZNorm > 15.0))
 
                 # Reduce dynamics for probing
                 self.robot.set_dynamic_rel(0.02)
@@ -644,12 +626,12 @@ class GCodeExecutor(GCodeCommands):
         '''
         # Assumes a Cubic build volume.. Should use actual spherical volume
         # Change home pose to gcode home, checks then the spedific placement after homeing gcode zero
-        if ((self.Xmax[1]+self.gcode_home_pose_vec[0] >= self.robot.radius) 
-            or (self.Xmax[0]+self.gcode_home_pose_vec[0] <= self.robot.base_area) 
-            or (self.Ymax[1]+self.gcode_home_pose_vec[1] >= self.robot.radius) 
-            #or (self.Ymax[0]+self.gcode_home_pose_vec[1] <= self.robot.base_area) 
-            or (self.Zmax[1]+self.gcode_home_pose_vec[2] >= self.robot.height_up) 
-            or (self.Zmax[0]+self.gcode_home_pose_vec[2] <= self.robot.height_down)):
+        if ((self.Xmax[1]+self.gcode_home_pose_vec[0] >= self.robot.radius) or
+            (self.Xmax[0]+self.gcode_home_pose_vec[0] <= self.robot.base_area) or
+            (self.Ymax[1]+self.gcode_home_pose_vec[1] >= self.robot.radius) or
+            # (self.Ymax[0]+self.gcode_home_pose_vec[1] <= self.robot.base_area) or
+            (self.Zmax[1]+self.gcode_home_pose_vec[2] >= self.robot.height_up) or
+            (self.Zmax[0]+self.gcode_home_pose_vec[2] <= self.robot.height_down)):
             return False
         else:
             return True
@@ -670,7 +652,7 @@ class GCodeExecutor(GCodeCommands):
         if not self.does_model_fit_bed():
             print("Model does not fit on build plate")
             return False
-        else: # skipping lower part for now
+        else:  # skipping lower part for now
             return True
 
         # move in a square and detect collision
@@ -680,7 +662,7 @@ class GCodeExecutor(GCodeCommands):
         for point in edge_points:
 
             # Stop motion if the overall force is greater than 30N
-            #data = MotionData().with_reaction(Reaction(Measure.ForceXYZNorm > 30.0, reaction_motion))
+            # data = MotionData().with_reaction(Reaction(Measure.ForceXYZNorm > 30.0, reaction_motion))
             data = self.robot.make_norm_reaction_data(30.0,reaction=reaction_motion)
             motion = self.robot.make_linear_motion(self.robot.make_affine_object(point[0] + self.robot.robot_home_pose_vec[0],point[1] + self.robot.robot_home_pose_vec[1],point[2]))
 
@@ -705,18 +687,18 @@ class GCodeExecutor(GCodeCommands):
         mid_point = [self.X,self.Y,self.Z]
         next_point = [self.X,self.Y,self.Z]
 
-        if self.read_param(line_number,'X') != False:
+        if self.read_param(line_number,'X') is not False:
             next_point[0] = (self.read_param(line_number,'X'))
-        if self.read_param(line_number,'Y') != False:
+        if self.read_param(line_number,'Y') is not False:
             next_point[1] = (self.read_param(line_number,'Y'))
-        if self.read_param(line_number,'Z') != False:
+        if self.read_param(line_number,'Z') is not False:
             next_point[2] = (self.read_param(line_number,'Z'))
 
         v1 = self.make_vector(np.array(prev_point),np.array(mid_point))
         v2 = self.make_vector(np.array(mid_point),np.array(next_point))
 
         if np.count_nonzero(v1) == 0 or np.count_nonzero(v2) == 0:
-            return 0.0 # No direction change
+            return 0.0  # No direction change
         else:
             angle = self.angle_between(v1,v2)
             return angle
@@ -749,7 +731,7 @@ class GCodeExecutor(GCodeCommands):
         Input:
         -----
         interval: [int,int]
-            Interval for which to make waypoints for 
+            Interval for which to make waypoints for
 
         Returns:
         -----
@@ -840,11 +822,11 @@ class GCodeExecutor(GCodeCommands):
         elif command[0] == 'G':
 
             # Find current / new z-height %% Implement for each line instead of start of interval, ignored if no new value anyway %%
-            if self.read_param(self.interval[0],'Z') != False:
+            if self.read_param(self.interval[0],'Z') is not False:
                 self.Z = self.read_param(self.interval[0],'Z')
 
             # Find desired feedrate / working speed / max velocity
-            if self.read_param(self.interval[0],'F') != False:
+            if self.read_param(self.interval[0],'F') is not False:
                 self.F = self.read_param(self.interval[0],'F')
 
             # Call method for G-command
@@ -905,7 +887,7 @@ class GCodeExecutor(GCodeCommands):
 
         largest_axis = max([bed_points[0][0][0]-bed_points[-1][-1][0],bed_points[0][0][1]-bed_points[-1][-1][1],max_z-min_z])
         axis_scale = [(bed_points[0][0][0]-bed_points[-1][-1][0])/largest_axis,(bed_points[0][0][1]-bed_points[-1][-1][1])/largest_axis,(max_z-min_z)/largest_axis]
-        
+
         fig = go.Figure(data=[go.Surface(z=z,x=x,y=y)])
         fig.update_traces(contours_z=dict(show=True, usecolormap=True,
                                         highlightcolor="limegreen", project_z=True))
@@ -914,14 +896,14 @@ class GCodeExecutor(GCodeCommands):
                         width=1000, height=1000,
                         margin=dict(l=65, r=50, b=65, t=90),
                         scene=dict(
-                            aspectratio = dict( x=axis_scale[0], y=axis_scale[1], z=axis_scale[2] ),
-                            aspectmode = 'manual'
+                            aspectratio=dict(x=axis_scale[0], y=axis_scale[1], z=axis_scale[2]),
+                            aspectmode='manual'
                         )
         )
 
         fig.show()
 
-        #fig.write_image('bedmesh.eps',width=1920,height=1080)
+        # fig.write_image('bedmesh.eps',width=1920,height=1080)
 
     def visualize_gcode(self):
         '''
@@ -934,7 +916,7 @@ class GCodeExecutor(GCodeCommands):
         -----
 
         '''
-        
+
         self.reset_parameters()
 
         # arrays for plotting data
@@ -948,7 +930,7 @@ class GCodeExecutor(GCodeCommands):
 
         for interval in self.list_of_intervals:
             if self.read_command(interval[0]) == 'G1':
-                if (self.read_param(interval[0],'E') != False) and ((self.read_param(interval[0],'E') > self.E) or self.extrusion_mode == 'relative') and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
+                if (self.read_param(interval[0],'E') is not False) and ((self.read_param(interval[0],'E') > self.E) or self.extrusion_mode == 'relative') and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
                     # front-pad the start position to the coming series of moves
                     x_coordinates.append(self.X * 1000)
                     y_coordinates.append(self.Y * 1000)
@@ -962,7 +944,7 @@ class GCodeExecutor(GCodeCommands):
                     #     colors = colors[:-2]
 
                 for point in range(interval[0],interval[1]+1):
-                    if (self.read_param(point,'E') != False) and ((self.read_param(point,'E') > self.E) or self.extrusion_mode == 'relative') and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
+                    if (self.read_param(point,'E') is not False) and ((self.read_param(point,'E') > self.E) or self.extrusion_mode == 'relative') and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
                         for key in self.gcodelines[point].params:
                             self.__dict__[key] = self.read_param(point,key)
 
@@ -988,7 +970,7 @@ class GCodeExecutor(GCodeCommands):
             else:
                 for point in range(interval[0],interval[1]+1):
                     for key in self.gcodelines[point].params:
-                        if self.read_param(point,'X') != False or self.read_param(point,'Y') != False or self.read_param(point,'Z') != False or self.read_param(point,'E') != False or self.read_param(point,'F') != False:
+                        if self.read_param(point,'X') is not False or self.read_param(point,'Y') is not False or self.read_param(point,'Z') is not False or self.read_param(point,'E') is not False or self.read_param(point,'F') is not False:
                             self.__dict__[key] = self.read_param(point,key)
 
         largest_axis = max([self.Xmax[1]-self.Xmax[0],self.Ymax[1]-self.Ymax[0],self.Zmax[1]-self.Zmax[0]])
@@ -1009,15 +991,15 @@ class GCodeExecutor(GCodeCommands):
                     )
                 ),
                 colorscale=[[0,'rgb(0,0,255)'],[1,'rgb(255,0,0)']]
-                ),
+            ),
             connectgaps=False
-            ))
+        ))
 
         fig.update_layout(
             autosize=True,
             scene=dict(
-                aspectratio = dict( x=axis_scale[0], y=axis_scale[1], z=axis_scale[2] ),
-                aspectmode = 'manual'
+                aspectratio=dict(x=axis_scale[0], y=axis_scale[1], z=axis_scale[2]),
+                aspectmode='manual'
             ),
             title_text=('Visualization of extruded filament paths for ' + self.filename_),
             showlegend=False
@@ -1060,7 +1042,6 @@ class GCodeExecutor(GCodeCommands):
         '''
         return "GCodeExecutor"
 
-
     def display(self):
         '''
         Display basic iformation about the Class object such as filename of processed file, number of lines, material use, etc.
@@ -1078,6 +1059,7 @@ class GCodeExecutor(GCodeCommands):
             print(f"\nName of file being processed: {self.filename_ + '.gcode'}")
         print(f"Number of command lines processed: {self.number_of_lines}")
         print("Total filament used: \n")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=True)

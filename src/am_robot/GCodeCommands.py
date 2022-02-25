@@ -1,9 +1,10 @@
 import time
 import numpy as np
 
+
 class GCodeCommands():
     '''
-    Collection of G-code commands (M and G). 
+    Collection of G-code commands (M and G).
 
     Attributes:
     ----
@@ -49,18 +50,18 @@ class GCodeCommands():
 
     def M109(self):
         print("Setting and waiting for hotend temperature")
-        if self.read_param(self.interval[0],'S') != False:
+        if self.read_param(self.interval[0],'S') is not False:
             temp_ref = self.read_param(self.interval[0],'S')
             self.tool.set_nozzletemp(temp_ref)
             while self.tool.read_temperature() < (temp_ref-5.0):
                 print(".")
-        elif self.read_param(self.interval[0],'R') != False:
+        elif self.read_param(self.interval[0],'R') is not False:
             self.tool.set_nozzletemp(self.read_param(self.interval[0],'R'))
             while self.tool.read_temperature() < self.read_param(self.interval[0],'R')-5.0 or self.tool.read_nozzletemp() > self.read_param(self.interval[0],'R')+5.0:
                 print(".")
         else:
             self.tool.set_nozzletemp(0)
-            while self.tool.read_temperature() > 35.0: #assumed high ambient temperature
+            while self.tool.read_temperature() > 35.0:  # assumed high ambient temperature
                 print(".")
         time.sleep(3)
 
@@ -70,29 +71,29 @@ class GCodeCommands():
     ''' G-command methods '''
 
     def G0(self):
-        #if self.read_param(interval[0],'X') != False or self.read_param(interval[0],'Y') != False or self.read_param(interval[0],'Z') != False:
-        if self.read_param(self.interval[0],'X') != False and self.read_param(self.interval[0],'Y') != False:
+        # if self.read_param(interval[0],'X') is not False or self.read_param(interval[0],'Y') is not False or self.read_param(interval[0],'Z') is not False:
+        if self.read_param(self.interval[0],'X') is not False and self.read_param(self.interval[0],'Y') is not False:
             motion = self.make_path(self.interval,0.01)
-            #self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
+            # self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
 
             input("Press enter to start non-extrusion move...")
             self.robot.execute_move(frame=self.robot.tool_frame,motion=motion)
 
     def G1(self):
-        if (self.read_param(self.interval[0],'X') != False) or (self.read_param(self.interval[0],'Y') != False) or (self.read_param(self.interval[0],'Z') != False):
+        if (self.read_param(self.interval[0],'X') is not False) or (self.read_param(self.interval[0],'Y') is not False) or (self.read_param(self.interval[0],'Z') is not False):
 
             # Make path trajectory
-            motion = self.make_path(self.interval,0.01) # PathMotion gives smooth movement compared to WayPointMovement
+            motion = self.make_path(self.interval,0.01)  # PathMotion gives smooth movement compared to WayPointMovement
 
             # set dynamic rel and relative max velocity based on feedrate
             rel_velocity = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
             self.robot.set_velocity_rel(rel_velocity)
 
             # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
-            if self.read_param(self.interval[0],'E') != False:
+            if self.read_param(self.interval[0],'E') is not False:
                 self.tool.set_feedrate(self.F/40.0)
             # feed path motion to robot and move using a separate thread
-            thread = self.robot.execute_threaded_move(frame=self.robot.tool_frame,motion=motion) # Just starts move in a thread with some initialization
+            thread = self.robot.execute_threaded_move(frame=self.robot.tool_frame,motion=motion)  # Just starts move in a thread with some initialization
 
             # Wait here for path motion to finish and join the thread
             thread.join()
@@ -102,7 +103,7 @@ class GCodeCommands():
             self.robot.recover_from_errors()
 
         # Some slicers use G1 even for non extrusion moves... Example retraction of filament
-        elif self.read_param(self.interval[0],'E') != False:
+        elif self.read_param(self.interval[0],'E') is not False:
             # Target extrusion distance and time elapsed at given feedrate
             target_E = self.read_param(self.interval[0],'E')
             sleep_time = self.tool.calculate_delta_t(target_E,self.E,self.F)
@@ -146,8 +147,6 @@ class GCodeCommands():
         nr_keys = 0
         for key in self.gcodelines[self.interval[0]].params:
             nr_keys = nr_keys + 1
-
-
         if nr_keys == 0:
             # if not params move to default 0,0,0 start position
             self.move_to_point(x,y,z)
@@ -182,7 +181,7 @@ def main():
     gcc = GCodeCommands()
     command = 'G1'
     gcc.command = command
-    getattr(gcc,command,getattr(gcc,'default'))() # <---
+    getattr(gcc,command,getattr(gcc,'default'))()  # <---
 
 
 if __name__ == '__main__':

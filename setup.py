@@ -15,9 +15,6 @@ setuptools.setup(
     project_urls={
         "Bug Tracker": "https://github.com/alejontnu/am-robot/issues",
     },
-    #entry_points = {
-    #    'console_scripts': ['run=am-robot.command_line:main'],
-    #},
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
@@ -25,8 +22,6 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(where='src'),
     package_dir={"": "src"},
-    #package_data={'': ['benchmark.txt']},
-    include_package_data=True,
-    install_requires=["argparse","gcodeparser","pandas","matplotlib","plotly","numpy"],# frankx must be installed through cmake for dependencies??
+    install_requires=["argparse", "gcodeparser", "pandas", "plotly", "numpy", "pyserial"],  # frankx must be installed from source
     python_requires=">=3.7",
 )

@@ -1,21 +1,21 @@
-import sys
+# import sys
 import argparse
 import time
-
-if sys.platform == 'linux':
-    from frankx import Robot
-elif sys.platform == 'win32':
-    try:
-        from frankx import Robot    
-    except Exception as e:
-        print(e)
-    finally:
-        print('Running on OS: ' + sys.platform)
-
 
 from am_robot.GCodeExecutor import GCodeExecutor
 from am_robot.ExtruderTool import ExtruderTool
 from am_robot.FrankaRobot import FrankaRobot
+
+# if sys.platform == 'linux':
+#     from frankx import Robot
+# elif sys.platform == 'win32':
+#     try:
+#         from frankx import Robot
+#     except Exception as e:
+#         print(e)
+#     finally:
+#         print('Running on OS: ' + sys.platform)
+
 
 def main():
     '''
@@ -40,9 +40,10 @@ def main():
     '''
 
     ''' Parsing input arguments '''
-    parser = argparse.ArgumentParser(formatter_class=argparse.MetavarTypeHelpFormatter,
-        description=('''Package for controlling a 3D printing on a 6 DoF robotic arm''')
-        ,epilog='This is still under development',
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.MetavarTypeHelpFormatter,
+        description=('''Package for controlling a 3D printing on a 6 DoF robotic arm'''),
+        epilog='This is still under development',
         add_help=True)
 
     parser.add_argument('--host', default='10.0.0.2', type=str, help='FCI IP of the robot')
@@ -55,10 +56,10 @@ def main():
     parser.add_argument('--f_width', default=2.85, type=float, help='Width of filament used')
 
     parser.add_argument('--visualize', default=False, type=bool, help='Visualize the given Gcode as a 3D plot. Skips any hardware connection precess')
-    parser.add_argument('--lines',default=100000000,type=int,help='Max number of lines to process, default is higher than ever expected')
+    parser.add_argument('--lines', default=100000000, type=int, help='Max number of lines to process, default is higher than ever expected')
     parser.add_argument('--skip_connection', default=False, type=bool, help='If True, skips the connection to robot. For testing out-of-lab. Also defaults too True if visualize is True')
-    parser.add_argument('--skip_probe',default=False,type=bool,help='If True, skips the bed probing step')
-    parser.add_argument('--skip_segments',default=False,type=bool,help='Skips the G-code segments')
+    parser.add_argument('--skip_probe', default=False, type=bool, help='If True, skips the bed probing step')
+    parser.add_argument('--skip_segments', default=False, type=bool, help='Skips the G-code segments')
     args = parser.parse_args()
 
     time_elapsed_task = time.time()
@@ -81,15 +82,14 @@ def main():
 
         input("Press Enter to continue if satisfied with model plot...")
 
-
     if executor.robot.is_connected:
         # Manually position end effector/extrusion nozzle at 'home' point
         executor.home_gcode(args.home_mode)
 
         # Check bounds for build area
-        #proceed = executor.is_build_feasible()
+        # proceed = executor.is_build_feasible()
         proceed = True
-        #executor.robot.gripper.clamp(0.005)
+        # executor.robot.gripper.clamp(0.005)
 
         # Uses force feedback to determine where n points of the print bed are located
         if proceed:
@@ -99,7 +99,7 @@ def main():
                 bed_found = True
 
             if bed_found and not args.skip_segments:
-            # Make a bed mesh for knowing the surface flatness and location of build area
+                # Make a bed mesh for knowing the surface flatness and location of build area
                 if args.visualize:
                     executor.visualize_bed_mesh()
                     input("When happy with bed mesh press enter...")
@@ -128,6 +128,7 @@ def main():
     if not args.skip_connection:
         executor.tool.set_feedrate(0.0)
         executor.tool.disconnect()
+
 
 if __name__ == '__main__':
     main()

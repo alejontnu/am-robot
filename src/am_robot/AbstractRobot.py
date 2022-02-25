@@ -4,7 +4,7 @@ class AbstractRobot():
     '''
     def __init__(self,host):
         self.host = host
-        self.robot = {} #Change 
+        self.robot = {}  # Change
 
     def set_robot_mode(self,mode):
         print("Function 'set_robot_mode()' missing in Specific robot Class, please implement...")

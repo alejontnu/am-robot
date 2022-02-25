@@ -5,6 +5,7 @@ import time
 
 from am_robot.AbstractTool import AbstractTool
 
+
 class ExtruderTool(AbstractTool):
     '''
     Converts feedrate from mm/min to mm/s and passes it to extrusion controller
@@ -32,7 +33,6 @@ class ExtruderTool(AbstractTool):
         '''
         super().__init__(port)
 
-
         self.tooltype = tooltype
         self.port = port
         self.filament_width = filament_width
@@ -44,12 +44,11 @@ class ExtruderTool(AbstractTool):
 
         self.motor_steps_per_revolution = 400.0
         self.micro_stepping = 16.0
-        self.gear_ratio = 3.0 # From datasheet
-        self.hobb_diameter_mm = 7.68 # 7.3 # From datasheet/manufacturer (effective and should be calibrated)
-        self.correcting_term = 1.0 # Change this to value after running extest.py and calculating true value
+        self.gear_ratio = 3.0  # From datasheet
+        self.hobb_diameter_mm = 7.68  # 7.3 # From datasheet/manufacturer (effective and should be calibrated)
+        self.correcting_term = 1.0  # Change this to value after running extest.py and calculating true value
 
         self.steps_per_mm_filament = self.calculate_steps_per_mm()
-
 
     def disconnect(self):
         '''
@@ -83,7 +82,7 @@ class ExtruderTool(AbstractTool):
         feedrate = self.convert_per_minute_to_per_second(feedrate)
         motor_frequency = self.feedrate_to_motor_frequency(feedrate)
         packed = struct.pack('f',motor_frequency)
-        self.ser.write(b'X'+packed)# + 4 bytes of number
+        self.ser.write(b'X'+packed)  # + 4 bytes of number
 
     def set_nozzletemp(self,temperature):
         '''
@@ -99,7 +98,7 @@ class ExtruderTool(AbstractTool):
 
         '''
         packed = struct.pack('f',temperature)
-        self.ser.write(b'H'+packed) # + 4 bytes of number
+        self.ser.write(b'H'+packed)  # + 4 bytes of number
 
     def blink_led(self):
         '''
