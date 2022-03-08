@@ -5,6 +5,7 @@ from am_robot.AbstractRobot import AbstractRobot
 
 if sys.platform == 'linux':
     from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion, Waypoint, Reaction, LinearRelativeMotion, Measure, PathMotion, MotionData
+    from _movex import Path
 elif sys.platform == 'win32':
     try:
         from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion, Waypoint, Reaction, LinearRelativeMotion, Measure, PathMotion, MotionData
@@ -179,13 +180,11 @@ class FrankaRobot(AbstractRobot):
         # Joint motion to set initial configuration
         self.robot.move(JointMotion([0.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
 
-        self.robot_home_pose = Affine(0.350, 0.0, -0.098)  # NB not same as auto-home extruder
-        self.robot_home_pose_vec = [0.350, 0.0, -0.098]
+        # Set this within 5 cm of build plate for testing so that probing can start close enough without having to manually mode end-effectior into position. NB! Find out desired location
+        self.robot_home_pose = Affine(0.350, 0.0, -0.08)  # NB not same as auto-home extruder
+        self.robot_home_pose_vec = [0.350, 0.0, -0.08]
 
         # Position tool head
-        # self.robot.move(LinearMotion(self.robot_home_pose))
-        # self.robot.move(Affine(-0.0,-0.0,-0.0,0.0,-math.pi/4,0.0),LinearMotion(self.robot_home_pose))
-        # self.robot.move(Affine(-0.0,-0.0,-0.09119,0.0,-math.pi/4,0.0),LinearMotion(self.robot_home_pose))
         self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
 
         self.home_pose = self.read_current_pose()
@@ -196,7 +195,7 @@ class FrankaRobot(AbstractRobot):
 
     def read_current_pose(self):
         '''
-        Return the current pose of the robot taking the tool_frame into account
+        Return the current pose of the robot taking the self.tool_frame into account
 
         Input:
         -----
@@ -268,4 +267,5 @@ class FrankaRobot(AbstractRobot):
         return waypoint
 
     def make_path_motion(self, path_points, blending_distance):
-        return PathMotion(path_points, blend_max_distance=blending_distance)
+        # return PathMotion(path_points, blend_max_distance=blending_distance)
+        return Path(path_points, blend_max_distance=blending_distance)

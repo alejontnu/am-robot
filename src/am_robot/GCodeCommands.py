@@ -54,15 +54,16 @@ class GCodeCommands():
             temp_ref = self.read_param(self.interval[0],'S')
             self.tool.set_nozzletemp(temp_ref)
             while self.tool.read_temperature() < (temp_ref-5.0):
-                print(".")
+                pass
         elif self.read_param(self.interval[0],'R') is not False:
             self.tool.set_nozzletemp(self.read_param(self.interval[0],'R'))
             while self.tool.read_temperature() < self.read_param(self.interval[0],'R')-5.0 or self.tool.read_nozzletemp() > self.read_param(self.interval[0],'R')+5.0:
-                print(".")
+                pass
         else:
             self.tool.set_nozzletemp(0)
             while self.tool.read_temperature() > 35.0:  # assumed high ambient temperature
-                print(".")
+                pass
+        # Giving time for temperature to stabilize
         time.sleep(3)
 
     def M140(self):
@@ -91,7 +92,7 @@ class GCodeCommands():
 
             # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
             if self.read_param(self.interval[0],'E') is not False:
-                self.tool.set_feedrate(self.F/40.0)
+                self.tool.set_feedrate(self.F/50.0)
             # feed path motion to robot and move using a separate thread
             thread = self.robot.execute_threaded_move(frame=self.robot.tool_frame,motion=motion)  # Just starts move in a thread with some initialization
 
@@ -109,7 +110,7 @@ class GCodeCommands():
             sleep_time = self.tool.calculate_delta_t(target_E,self.E,self.F)
 
             # set retraction/un-retraction feedrate
-            self.tool.set_feedrate(np.sign(sleep_time)*self.F/40.0)
+            self.tool.set_feedrate(np.sign(sleep_time)*self.F/50.0)
             # Sleep
             time.sleep(abs(sleep_time))
             # Stop retraction/un-retraction

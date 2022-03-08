@@ -522,7 +522,7 @@ class GCodeExecutor(GCodeCommands):
 
                 self.robot.set_dynamic_rel(0.1)
                 # Move to probe location
-                affine1 = self.robot.make_affine_object(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2]+0.05)
+                affine1 = self.robot.make_affine_object(probe_locations_xy[axis1][axis2][0] + self.gcode_home_pose_vec[0],probe_locations_xy[axis1][axis2][1] + self.gcode_home_pose_vec[1],self.gcode_home_pose_vec[2]+0.02)
                 m1 = self.robot.make_linear_motion(affine1)
                 self.robot.execute_move(frame=self.robot.tool_frame,motion=m1)
 
@@ -584,8 +584,8 @@ class GCodeExecutor(GCodeCommands):
         '''
         # Points
         A = self.bed_points[0][0]
-        B = self.bed_points[2][0]
-        C = self.bed_points[0][2]
+        B = self.bed_points[0][2]
+        C = self.bed_points[2][0]
 
         AB = [B[0]-A[0],B[1]-A[1],B[2]-A[2]]
         AC = [C[0]-A[0],C[1]-A[1],C[2]-A[2]]
@@ -786,6 +786,8 @@ class GCodeExecutor(GCodeCommands):
 
         '''
         path_points = []
+        if interval[0] == interval[1]:
+            path_points.append(self.robot.read_current_pose())
         for point in range(interval[0],interval[1]+1):
             for key in self.gcodelines[point].params:
                 if key == 'X' or key == 'Y' or key == 'Z':
@@ -856,7 +858,7 @@ class GCodeExecutor(GCodeCommands):
 
         else:
             print(f"Command other than M or G... Silently passing on command {command}")
-            pass 
+            pass
 
     def visualize_bed_mesh(self):
         '''
