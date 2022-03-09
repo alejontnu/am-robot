@@ -83,24 +83,53 @@ class GCodeCommands():
     def G1(self):
         if (self.read_param(self.interval[0],'X') is not False) or (self.read_param(self.interval[0],'Y') is not False) or (self.read_param(self.interval[0],'Z') is not False):
 
-            # Make path trajectory
-            motion = self.make_path(self.interval,0.01)  # PathMotion gives smooth movement compared to WayPointMovement
-
             # set dynamic rel and relative max velocity based on feedrate
             rel_velocity = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
             self.robot.set_velocity_rel(rel_velocity)
 
+            # Make path motion trajectory, the additional path is the more fancy one that is not yet implemented in Robot.move() but used for its time parametrization states
+            path_motion, path = self.make_path(self.interval,0.01)  # PathMotion gives smooth movement compared to WayPointMovement
+
             # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
             if self.read_param(self.interval[0],'E') is not False:
-                self.tool.set_feedrate(self.F/50.0)
+                # parametrize the path to get states
+                timestep = 0.01
+                vel_rels = [rel_velocity*self.robot.max_cart_vel/1000]*7
+                accel_rels = [0.05*self.robot.max_cart_acc/1000]*7
+                jerk_rels = [0.02*self.robot.max_cart_jerk/1000]*7
+                t_list, s_list, v_list, a_list, j_list = self.robot.parametrize_path(path,timestep,vel_rels,accel_rels,jerk_rels)
+
+                path_time = len(t_list) * timestep
+
+                # Find mm filament per mm robot movement
+                mm_filament_per_mm_distance = self.path_extrusion / path.length
+
+                # Simple average
+                # path_time = len(t_list) * 0.01
+                # average_extrusion_velocity = (self.path_extrusion / path_time) * 60
+                # self.tool.set_feedrate(average_extrusion_velocity)
+
+                self.plot_cart_path(t_list, s_list, v_list, a_list, j_list)
+
             # feed path motion to robot and move using a separate thread
-            thread = self.robot.execute_threaded_move(frame=self.robot.tool_frame,motion=motion)  # Just starts move in a thread with some initialization
+            thread = self.robot.execute_threaded_move(frame=self.robot.tool_frame,motion=path_motion)  # Just starts move in a thread with some initialization
+
+            if self.read_param(self.interval[0],'E') is not False:
+                for velocity in v_list:
+                    if not thread.is_alive():
+                        self.tool.set_feedrate(0.0)
+                        break
+                    else:
+                        feedrate_profile_per_s = mm_filament_per_mm_distance * velocity
+                        feedrate_profile_per_min = feedrate_profile_per_s * 60
+                        self.tool.set_feedrate(feedrate_profile_per_min)
+                        time.sleep(timestep)
 
             # Wait here for path motion to finish and join the thread
             thread.join()
 
             # Thread done aka move done aka stop extrusion immidiately
-            self.tool.set_feedrate(0)
+            self.tool.set_feedrate(0.0)
             self.robot.recover_from_errors()
 
         # Some slicers use G1 even for non extrusion moves... Example retraction of filament
@@ -110,9 +139,11 @@ class GCodeCommands():
             sleep_time = self.tool.calculate_delta_t(target_E,self.E,self.F)
 
             # set retraction/un-retraction feedrate
-            self.tool.set_feedrate(np.sign(sleep_time)*self.F/50.0)
+            self.tool.set_feedrate(np.sign(sleep_time)*self.F)
+
             # Sleep
             time.sleep(abs(sleep_time))
+
             # Stop retraction/un-retraction
             self.tool.set_feedrate(0)
 

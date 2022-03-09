@@ -7,6 +7,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 
 from gcodeparser import GcodeParser
 from am_robot.GCodeCommands import GCodeCommands
@@ -80,6 +81,7 @@ class GCodeExecutor(GCodeCommands):
         self.prev_X = 0
         self.prev_Y = 0
         self.prev_Z = 0
+        self.prev_E_total = 0
         self.X = 0
         self.Y = 0
         self.Z = 0
@@ -785,18 +787,32 @@ class GCodeExecutor(GCodeCommands):
         path: PathMotion object
 
         '''
+        if self.extrusion_mode == 'absolute':
+            self.path_extrusion = 0
+            self.prev_E_total = self.E
+        else:
+            self.path_extrusion = 0
+
         path_points = []
         if interval[0] == interval[1]:
             path_points.append(self.robot.read_current_pose())
         for point in range(interval[0],interval[1]+1):
             for key in self.gcodelines[point].params:
-                if key == 'X' or key == 'Y' or key == 'Z':
+                if key == 'X' or key == 'Y' or key == 'Z' or key == 'E':
                     self.__dict__[key] = self.read_param(point,key)
+                    if key == 'E':
+                        if self.extrusion_mode == 'absolute':
+                            self.path_extrusion = self.__dict__[key]
+                        else:
+                            self.path_extrusion += self.__dict__[key]
             z_compensation = self.vertical_bed_level_compensation((self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
             affine = self.robot.make_affine_object(self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
             path_points.append(affine)
-        path = self.robot.make_path_motion(path_points,corner_blending)
-        return path
+        path_motion, path = self.robot.make_path_motion(path_points,corner_blending)
+        if self.extrusion_mode == 'absolute':
+            self.path_extrusion -= self.prev_E_total
+
+        return path_motion, path
 
     def target_point(self,line_number):
         '''
@@ -1032,6 +1048,20 @@ class GCodeExecutor(GCodeCommands):
         fig.show()
 
         self.reset_parameters()
+
+    def plot_cart_path(self,t_list, s_list, v_list, a_list, j_list):
+        plt.figure()
+        plt.plot(t_list, s_list, label='path')
+        plt.plot(t_list, v_list, label='velocity')
+        plt.plot(t_list, a_list, label='acceleration')
+        plt.plot(t_list, j_list, label='jerk')
+        plt.legend()
+        plt.grid(True)
+
+        plt.xlabel('t')
+        plt.ylabel('m, m/s, m/s2, m/s3')
+
+        plt.show()
 
     def reset_parameters(self):
         '''

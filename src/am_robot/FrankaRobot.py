@@ -1,11 +1,12 @@
 import sys
 import math
+import numpy as np
 
 from am_robot.AbstractRobot import AbstractRobot
 
 if sys.platform == 'linux':
     from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion, Waypoint, Reaction, LinearRelativeMotion, Measure, PathMotion, MotionData
-    from _movex import Path
+    from _movex import Path, TimeParametrization, Trajectory
 elif sys.platform == 'win32':
     try:
         from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion, Waypoint, Reaction, LinearRelativeMotion, Measure, PathMotion, MotionData
@@ -51,8 +52,8 @@ class FrankaRobot(AbstractRobot):
 
         self.host = host
         self.max_cart_vel = 1700  # mm/s max cartesian velocity
-        self.max_cart_acc = 13  # mm/s² max cartesian acceleration
-        self.max_cart_jerk = 6500  # mm/s³ max cartesion jerk
+        self.max_cart_acc = 13000  # mm/s² max cartesian acceleration
+        self.max_cart_jerk = 6500000  # mm/s³ max cartesion jerk
 
         # To skip connection (True) when not at robot for testing other functions without connection timeout
         if skip_connection is True:
@@ -267,5 +268,18 @@ class FrankaRobot(AbstractRobot):
         return waypoint
 
     def make_path_motion(self, path_points, blending_distance):
-        # return PathMotion(path_points, blend_max_distance=blending_distance)
-        return Path(path_points, blend_max_distance=blending_distance)
+        path_motion = PathMotion(path_points, blend_max_distance=blending_distance)
+        path = Path(path_points, blend_max_distance=blending_distance)
+        return path_motion, path
+
+    def parametrize_path(self,path,timestep,vel_rels,accel_rels,jerk_rels):
+        tp = TimeParametrization(delta_time=timestep)
+        trajectory = tp.parametrize(path, vel_rels, accel_rels, jerk_rels)
+        t_list, s_list, v_list, a_list, j_list = [], [], [], [], []
+        for state in trajectory.states:
+            t_list.append(state.t)
+            s_list.append(state.s)
+            v_list.append(state.ds)
+            a_list.append(state.dds)
+            j_list.append(state.ddds)
+        return np.array(t_list), np.array(s_list), np.array(v_list), np.array(a_list), np.array(j_list)

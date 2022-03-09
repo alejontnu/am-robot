@@ -169,7 +169,6 @@ class ExtruderTool(AbstractTool):
                 return temperature
             else:
                 print("Value other than T read. Ignoring...")
-                time.sleep(0.1)
 
     def read_extrusion_speed(self):
         '''
