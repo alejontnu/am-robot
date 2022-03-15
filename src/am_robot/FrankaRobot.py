@@ -51,9 +51,7 @@ class FrankaRobot(AbstractRobot):
         super().__init__(host)
 
         self.host = host
-        self.max_cart_vel = 1700  # mm/s max cartesian velocity
-        self.max_cart_acc = 13000  # mm/s² max cartesian acceleration
-        self.max_cart_jerk = 6500000  # mm/s³ max cartesion jerk
+        
 
         # To skip connection (True) when not at robot for testing other functions without connection timeout
         if skip_connection is True:
@@ -66,6 +64,9 @@ class FrankaRobot(AbstractRobot):
             try:
                 print("Attempting to connect to robot...")
                 self.robot = Robot(self.host, repeat_on_error=False)
+                self.max_cart_vel = self.robot.max_translation_velocity  # m/s max cartesian velocity
+                self.max_cart_acc = self.robot.max_translation_acceleration  # m/s² max cartesian acceleration
+                self.max_cart_jerk = self.robot.max_translation_jerk  # m/s³ max cartesion jerk
             except Exception as e:
                 print("Could not connect to robot on host IP: " + self.host + "\n")
                 raise e
@@ -105,10 +106,7 @@ class FrankaRobot(AbstractRobot):
         Return the desired state information from RobotState object
 
         Input:
-        -----
-        state: string
-            Desired state to extract value of
-
+        -----10.0,10.0,10.0,10.0,10.0,10.
         Returns:
         -----
         RobotState.state: varies
