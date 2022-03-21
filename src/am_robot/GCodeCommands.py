@@ -35,7 +35,7 @@ class GCodeCommands():
         print("Disable motors - Only disables extruder motor")
         self.tool.set_feedrate(0.0)
 
-    def M104(self):
+    def M1094(self):
         print("Setting hotend reference temperature")
         self.tool.set_nozzletemp(self.read_param(self.interval[0],'S'))
 
@@ -49,7 +49,7 @@ class GCodeCommands():
     def M107(self):
         print("Fan off - Not implemented")
 
-    def M109(self):
+    def M1099(self):
         print("Setting and waiting for hotend temperature")
         if self.read_param(self.interval[0],'S') is not False:
             temp_ref = self.read_param(self.interval[0],'S')
@@ -120,7 +120,7 @@ class GCodeCommands():
                 self.tool.set_feedrate(average_extrusion_velocity)
                 print(f"\nPath time: {path_time}s")
 
-                # Prot the velocity curve
+                # Plot the extrusion velocity profile
                 # self.plot_cart_path(t_list, s_list, v_list, a_list, j_list)
 
             start = time.perf_counter()
