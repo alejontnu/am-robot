@@ -118,7 +118,7 @@ class GCodeCommands():
                 path_time = len(t_list) * 0.01
                 average_extrusion_velocity = (self.path_extrusion / path_time) * 60
                 self.tool.set_feedrate(average_extrusion_velocity)
-                print(f"\nPath time: {path_time}s")
+                print(f"Path time: {path_time}s")
 
                 # Plot the extrusion velocity profile
                 # self.plot_cart_path(t_list, s_list, v_list, a_list, j_list)
@@ -136,7 +136,6 @@ class GCodeCommands():
             #             feedrate_profile_per_s = mm_filament_per_mm_distance * velocity * 1000
             #             feedrate_profile_per_min = feedrate_profile_per_s * 60
 
-            #             # actual_avg_time = path.length /
             #             print(f"Robot rel_vel: {rel_velocity}")
             #             print(f"Time param velocity: {velocity}")
             #             print(f"Feedrate: {feedrate_profile_per_min}")
@@ -144,6 +143,7 @@ class GCodeCommands():
             #             print(f"Move time: {path_time}")
             #             print(f"Path length: {path.length}")
             #             print(f"Path distance filament: {self.path_extrusion}")
+
             #             self.tool.set_feedrate(feedrate_profile_per_min)
             #             time.sleep(timestep)
             #             prev_velocity = velocity
@@ -153,7 +153,7 @@ class GCodeCommands():
             # Wait here for path motion to finish and join the thread
             thread.join()
             end = time.perf_counter()
-            print(f"\nMove time: {end-start}s\n")
+            print(f"Move time: {end-start}s\n")
 
             # Thread done aka move done aka stop extrusion immidiately
             self.tool.set_feedrate(0.0)

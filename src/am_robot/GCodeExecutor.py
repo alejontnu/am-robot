@@ -602,16 +602,42 @@ class GCodeExecutor(GCodeCommands):
         print(f"Bed plane coefficients: {self.bed_plane_abcd}")
 
     def calculate_bed_rotation_matrice(self):
-        self.plane_unit_vector_normal = self.unit_vector(self.bed_plane_abcd[0:3])
-        self.robot_horizontal_plane_normal = [0.0,0.0,1.0]
+        a = np.array(self.bed_plane_abcd[0:3])
+        b = np.array([1.0,0.0,1.0])
 
-        abs_product = abs(self.robot_horizontal_plane_normal[0]*self.plane_unit_vector_normal[0] + self.robot_horizontal_plane_normal[1]*self.plane_unit_vector_normal[1] + self.robot_horizontal_plane_normal[2]*self.plane_unit_vector_normal[2])
-        sqrt_robot_plane = math.sqrt(math.pow(self.robot_horizontal_plane_normal[0],2) + math.pow(self.robot_horizontal_plane_normal[1],2) + math.pow(self.robot_horizontal_plane_normal[2],2))
-        sqrt_bed_plane = math.sqrt(math.pow(self.plane_unit_vector_normal[0],2) + math.pow(self.plane_unit_vector_normal[1],2) + math.pow(self.plane_unit_vector_normal[2],2))
+        bx = np.copy(b)
+        bx[1] = 0.0
+        by = np.copy(b)
+        by[0] = 0.0
 
-        cosine_angle = abs_product/(sqrt_robot_plane*sqrt_bed_plane)
+        print(f"Angle between plane normals: {self.angle_between(a,b)*180/math.pi}")
+        print(f"Angle between plane normals: {self.angle_between(a,bx)*180/math.pi}")
+        print(f"Angle between plane normals: {self.angle_between(a,by)*180/math.pi}")
 
-        print(cosine_angle)
+        if math.isclose(self.angle_between(a,b),0.0,abs_tol=1e-8):
+            R = np.eye(3)
+        elif math.isclose(self.angle_between(a,b),math.pi,abs_tol=1e-8):
+            R = np.diag(-np.ones(3))
+        else:
+            au = self.unit_vector(a)
+            bu = self.unit_vector(b)
+
+            v = np.cross(au,bu)
+            s = np.linalg.norm(v) 
+            c = np.dot(au,bu)
+
+            vx = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]]) 
+            R = np.eye(3) + vx + np.dot(vx,vx)*(1-c)/(s**2)
+
+        T = np.block([
+            [R,               np.zeros((3,1))]
+        ])
+        T = np.block([
+            [T],
+            [np.array([0,0,0,1])]
+        ])
+
+        self.T_robot_bed = T
 
     def bed_level_compensation(self,point):
         '''
@@ -745,7 +771,7 @@ class GCodeExecutor(GCodeCommands):
         """
         v1_u = self.unit_vector(v1)
         v2_u = self.unit_vector(v2)
-        return np.arccos(np.clip(np.dot(v1_u, v2_u), -3.0, 3.0))
+        return np.arccos(np.clip(np.dot(v1_u, v2_u), -3.14, 3.14))
 
     def make_waypoints(self,interval):
         '''
