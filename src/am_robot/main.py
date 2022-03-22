@@ -55,11 +55,11 @@ def main():
     parser.add_argument('--d_nozzle', default=0.8, type=float, help='Hot-End Nozzle diameter')
     parser.add_argument('--f_width', default=2.85, type=float, help='Width of filament used')
 
-    parser.add_argument('--visualize', default=False, type=bool, help='Visualize the given Gcode as a 3D plot. Skips any hardware connection precess')
+    parser.add_argument('--visualize', action='store_true', help='If specified, visualize the given Gcode as a 3D plot')
     parser.add_argument('--lines', default=100000000, type=int, help='Max number of lines to process, default is higher than ever expected')
-    parser.add_argument('--skip_connection', default=False, type=bool, help='If True, skips the connection to robot. For testing out-of-lab. Also defaults too True if visualize is True')
-    parser.add_argument('--skip_probe', default=False, type=bool, help='If True, skips the bed probing step')
-    parser.add_argument('--skip_segments', default=False, type=bool, help='Skips the G-code segments')
+    parser.add_argument('--skip_connection', action='store_true', help='If specified, skips the connection to robot. For testing out-of-lab. Also defaults too True if visualize is True')
+    parser.add_argument('--skip_probe', action='store_true', help='If specified, skips the bed probing step')
+    parser.add_argument('--skip_segments', action='store_true', help='If specified, skips the G-code segments')
     args = parser.parse_args()
 
     time_elapsed_task = time.time()
