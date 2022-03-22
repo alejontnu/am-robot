@@ -14,10 +14,10 @@ from am_robot.GCodeCommands import GCodeCommands
 
 
 if sys.platform == 'linux':
-    from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, PathMotion, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion
+    from frankx import Measure, MotionData, Reaction
 elif sys.platform == 'win32':
     try:
-        from frankx import Affine, LinearMotion, LinearRelativeMotion, Measure, MotionData, PathMotion, Reaction, Robot, RobotMode, RobotState, StopMotion, Waypoint, WaypointMotion
+        from frankx import Measure, MotionData, Reaction
     except Exception as e:
         print(e)
     finally:
@@ -356,9 +356,9 @@ class GCodeExecutor(GCodeCommands):
                 break
 
             # Check the angle between consecutive position vectors
-            elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/6.0:  # An overall turning radius would maybe be better
-                interval = [self.interval[1]+1,line_number-1]
-                break
+            # elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/6.0:  # An overall turning radius would maybe be better
+            #     interval = [self.interval[1]+1,line_number-1]
+            #     break
 
             else:
                 # Typically when the next line is just another X-Y coordinate
@@ -494,8 +494,8 @@ class GCodeExecutor(GCodeCommands):
 
         '''
         self.robot.set_dynamic_rel(0.1)
-        z_compensation = self.vertical_bed_level_compensation((x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2]))
-        motion = self.robot.make_linear_motion(self.robot.make_affine_object(x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2] + z_compensation))
+        xyz_offsets = self.bed_level_compensation((x + self.gcode_home_pose_vec[0],y + self.gcode_home_pose_vec[1],z + self.gcode_home_pose_vec[2]))
+        motion = self.robot.make_linear_motion(self.robot.make_affine_object(x + self.gcode_home_pose_vec[0] + xyz_offsets[0],y + self.gcode_home_pose_vec[1] + xyz_offsets[1],z + self.gcode_home_pose_vec[2] + xyz_offsets[2]))
         self.robot.execute_move(frame=self.robot.tool_frame,motion=motion)
         self.robot.recover_from_errors()
 
@@ -559,6 +559,7 @@ class GCodeExecutor(GCodeCommands):
         if contact_found:
             self.bed_points = bed_grid
             self.calculate_bed_surface_plane()
+            self.calculate_bed_rotation_matrice()
             self.gcode_home_pose_vec = bed_grid[1][1]
             print(f"Gcode home location: {self.gcode_home_pose_vec}")
         else:
@@ -585,9 +586,9 @@ class GCodeExecutor(GCodeCommands):
 
         '''
         # Points
-        A = self.bed_points[0][0]
-        B = self.bed_points[0][2]
-        C = self.bed_points[2][0]
+        A = self.bed_points[1][1]
+        B = self.bed_points[2][1]
+        C = self.bed_points[1][2]
 
         AB = [B[0]-A[0],B[1]-A[1],B[2]-A[2]]
         AC = [C[0]-A[0],C[1]-A[1],C[2]-A[2]]
@@ -600,7 +601,19 @@ class GCodeExecutor(GCodeCommands):
         self.bed_plane_abcd = [a,b,c,d]
         print(f"Bed plane coefficients: {self.bed_plane_abcd}")
 
-    def vertical_bed_level_compensation(self,point):
+    def calculate_bed_rotation_matrice(self):
+        self.plane_unit_vector_normal = self.unit_vector(self.bed_plane_abcd[0:3])
+        self.robot_horizontal_plane_normal = [0.0,0.0,1.0]
+
+        abs_product = abs(self.robot_horizontal_plane_normal[0]*self.plane_unit_vector_normal[0] + self.robot_horizontal_plane_normal[1]*self.plane_unit_vector_normal[1] + self.robot_horizontal_plane_normal[2]*self.plane_unit_vector_normal[2])
+        sqrt_robot_plane = math.sqrt(math.pow(self.robot_horizontal_plane_normal[0],2) + math.pow(self.robot_horizontal_plane_normal[1],2) + math.pow(self.robot_horizontal_plane_normal[2],2))
+        sqrt_bed_plane = math.sqrt(math.pow(self.plane_unit_vector_normal[0],2) + math.pow(self.plane_unit_vector_normal[1],2) + math.pow(self.plane_unit_vector_normal[2],2))
+
+        cosine_angle = abs_product/(sqrt_robot_plane*sqrt_bed_plane)
+
+        print(cosine_angle)
+
+    def bed_level_compensation(self,point):
         '''
         Calculates the vertical compensation needed due to non-horizontal build plane. Compensation is made based on z height equal to 0, making the z component of 'point' excessive and unused
 
@@ -615,7 +628,11 @@ class GCodeExecutor(GCodeCommands):
             A value corresponding to the offset from the bed plane in the Z direction at z=0
 
         '''
-        return -(self.bed_plane_abcd[0]*point[0] + self.bed_plane_abcd[1]*point[1] + self.bed_plane_abcd[3])
+        xyz_offsets = [0,0,0]
+        xyz_offsets[0] = -(self.bed_plane_abcd[1]*point[1] + self.bed_plane_abcd[2]*point[2] + self.bed_plane_abcd[3])
+        xyz_offsets[1] = -(self.bed_plane_abcd[0]*point[0] + self.bed_plane_abcd[2]*point[2] + self.bed_plane_abcd[3])
+        xyz_offsets[2] = -(self.bed_plane_abcd[0]*point[0] + self.bed_plane_abcd[1]*point[1] + self.bed_plane_abcd[3])
+        return xyz_offsets
 
     def does_model_fit_bed(self):
         '''
@@ -763,8 +780,8 @@ class GCodeExecutor(GCodeCommands):
             for key in self.gcodelines[point].params:
                 if key == 'X' or key == 'Y' or key == 'Z':
                     self.__dict__[key] = self.read_param(point,key)
-            z_compensation = self.vertical_bed_level_compensation((self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
-            affine = self.robot.make_affine_object(self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
+            xyz_offsets = self.bed_level_compensation((self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
+            affine = self.robot.make_affine_object(self.X + self.gcode_home_pose_vec[0] + xyz_offsets[0],self.Y + self.gcode_home_pose_vec[1] + xyz_offsets[1],self.Z + self.gcode_home_pose_vec[2] + xyz_offsets[2])
             affines.append(affine)
         for affine, velocity_rel in affines, velocity_rels:
             waypoint = self.robot.make_waypoint(affine,velocity_rel)
@@ -805,8 +822,8 @@ class GCodeExecutor(GCodeCommands):
                             self.path_extrusion = self.__dict__[key]
                         else:
                             self.path_extrusion += self.__dict__[key]
-            z_compensation = self.vertical_bed_level_compensation((self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
-            affine = self.robot.make_affine_object(self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation)
+            xyz_offsets = self.bed_level_compensation((self.X,self.Y,self.Z))
+            affine = self.robot.make_affine_object(self.X + self.gcode_home_pose_vec[0] + xyz_offsets[0],self.Y + self.gcode_home_pose_vec[1] + xyz_offsets[1],self.Z + self.gcode_home_pose_vec[2] + xyz_offsets[2])
             path_points.append(affine)
         path_motion, path = self.robot.make_path_motion(path_points,corner_blending)
         if self.extrusion_mode == 'absolute':
@@ -828,8 +845,8 @@ class GCodeExecutor(GCodeCommands):
         The target point with bed level compensation and offset from G-code home location in relation to robot zero
 
         '''
-        z_compensation = self.vertical_bed_level_compensation((self.read_param(line_number,'X') + self.gcode_home_pose_vec[0],self.read_param(line_number,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
-        return self.read_param(line_number,'X') + self.gcode_home_pose_vec[0],self.read_param(line_number,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2] + z_compensation
+        xyz_offsets = self.bed_level_compensation((self.read_param(line_number,'X') + self.gcode_home_pose_vec[0],self.read_param(line_number,'Y') + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
+        return self.read_param(line_number,'X') + self.gcode_home_pose_vec[0] + xyz_offsets[0],self.read_param(line_number,'Y') + self.gcode_home_pose_vec[1] + xyz_offsets[1],self.Z + self.gcode_home_pose_vec[2] + xyz_offsets[2]
 
     def run_code_segments(self):
         prev_progress = 0
