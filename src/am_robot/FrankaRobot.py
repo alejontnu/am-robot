@@ -180,8 +180,8 @@ class FrankaRobot(AbstractRobot):
         self.robot.move(JointMotion([0.0, 0.4, 0.0, -2.0, 0.0, 2.4, 0.0]))
 
         # Set this within 5 cm of build plate for testing so that probing can start close enough without having to manually mode end-effectior into position. NB! Find out desired location
-        self.robot_home_pose = Affine(0.350, 0.0, -0.08)  # NB not same as auto-home extruder
-        self.robot_home_pose_vec = [0.350, 0.0, -0.08]
+        self.robot_home_pose = Affine(0.350, 0.0, -0.06)  # NB not same as auto-home extruder
+        self.robot_home_pose_vec = [0.350, 0.0, -0.06]
 
         # Position tool head
         self.robot.move(self.tool_frame, LinearMotion(self.robot_home_pose))
