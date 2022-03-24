@@ -854,9 +854,10 @@ class GCodeExecutor(GCodeCommands):
 			print(self.X)
 			print(self.Y)
 			print(self.Z)
-			xyz_offsets = self.bed_level_compensation((self.X,self.Y,self.Z))
+			xyz_offsets = self.bed_level_compensation((self.X + self.gcode_home_pose_vec[0],self.Y + self.gcode_home_pose_vec[1],self.Z + self.gcode_home_pose_vec[2]))
 			print(xyz_offsets)
 			affine = self.robot.make_affine_object(self.X + self.gcode_home_pose_vec[0] + xyz_offsets[0],self.Y + self.gcode_home_pose_vec[1] + xyz_offsets[1],self.Z + self.gcode_home_pose_vec[2] + xyz_offsets[2] + 0.05)
+			print(affine)
 			path_points.append(affine)
 		path_motion, path = self.robot.make_path_motion(path_points,corner_blending)
 		if self.extrusion_mode == 'absolute':
