@@ -35,7 +35,7 @@ class GCodeCommands():
         print("Disable motors - Only disables extruder motor")
         self.tool.set_feedrate(0.0)
 
-    def M1094(self):
+    def M104(self):
         print("Setting hotend reference temperature")
         self.tool.set_nozzletemp(self.read_param(self.interval[0],'S'))
 
@@ -49,7 +49,7 @@ class GCodeCommands():
     def M107(self):
         print("Fan off - Not implemented")
 
-    def M1099(self):
+    def M109(self):
         print("Setting and waiting for hotend temperature")
         if self.read_param(self.interval[0],'S') is not False:
             temp_ref = self.read_param(self.interval[0],'S')
@@ -79,7 +79,7 @@ class GCodeCommands():
             motion = self.make_path(self.interval,0.01)
             # self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
 
-            input("Press enter to start non-extrusion move...")
+            print("Non-extrusion move...")
             self.robot.execute_move(frame=self.robot.tool_frame,motion=motion)
 
     def G1(self):
@@ -95,54 +95,53 @@ class GCodeCommands():
             # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
             if self.read_param(self.interval[0],'E') is not False:
 
-                prev_velocity = -100.0
+                self.tool.set_feedrate(self.F / 60.0)
 
                 # parametrize the path to get states
-                timestep = 0.01
-                vel_rels = [0.395*self.robot.robot.velocity_rel*self.robot.max_cart_vel]*7  # *7 for a 7 element list. 0.395 because ???
-                accel_rels = [self.robot.robot.acceleration_rel*self.robot.max_cart_acc]*7
-                jerk_rels = [self.robot.robot.jerk_rel*self.robot.max_cart_jerk]*7
+                # timestep = 0.01
+                # vel_rels = [self.robot.robot.velocity_rel*self.robot.max_cart_vel]*7  # *7 for a 7 element list. 0.395 because ???
+                # accel_rels = [self.robot.robot.acceleration_rel*self.robot.max_cart_acc]*7
+                # jerk_rels = [self.robot.robot.jerk_rel*self.robot.max_cart_jerk]*7
 
-                # print(f"vel_rel: {vel_rels}")
-                # print(f"accel_rel: {accel_rels}")
-                # print(f"jerk_rel: {jerk_rels}")
+                # # print(f"vel_rel: {vel_rels}")
+                # # print(f"accel_rel: {accel_rels}")
+                # # print(f"jerk_rel: {jerk_rels}")
 
-                t_list, s_list, v_list, a_list, j_list = self.robot.parametrize_path(path,timestep,vel_rels,accel_rels,jerk_rels)
+                # t_list, s_list, v_list, a_list, j_list = self.robot.parametrize_path(path,timestep,vel_rels,accel_rels,jerk_rels)
 
-                path_time = len(t_list) * timestep
-
-                # Find mm filament per mm robot movement
-                mm_filament_per_mm_distance = self.path_extrusion / (path.length * 1000)
+                # path_time = len(t_list) * timestep
 
                 # Simple average
-                path_time = len(t_list) * 0.01
-                average_extrusion_velocity = (self.path_extrusion / path_time) * 60
-                self.tool.set_feedrate(average_extrusion_velocity)
-                print(f"Path time: {path_time}s")
+                # average_extrusion_velocity = (self.path_extrusion / path_time) * 60
+                # self.tool.set_feedrate(average_extrusion_velocity)
+                # print(f"Path time: {path_time}s")
 
                 # Plot the extrusion velocity profile
                 # self.plot_cart_path(t_list, s_list, v_list, a_list, j_list)
 
-            start = time.perf_counter()
+            # start = time.perf_counter()
             # feed path motion to robot and move using a separate thread
             thread = self.robot.execute_threaded_move(frame=self.robot.tool_frame,motion=path_motion)  # Just starts move in a thread with some initialization
 
             # if self.read_param(self.interval[0],'E') is not False:
+            #     prev_velocity = -100.0
+            #     # Find mm filament per mm robot movement
+            #     mm_filament_per_mm_distance = self.path_extrusion / path.length
             #     for velocity in v_list:
             #         if not thread.is_alive():
             #             self.tool.set_feedrate(0.0)
             #             break
             #         elif velocity != prev_velocity:
-            #             feedrate_profile_per_s = mm_filament_per_mm_distance * velocity * 1000
-            #             feedrate_profile_per_min = feedrate_profile_per_s * 60
+            #             feedrate_profile_per_s = mm_filament_per_mm_distance * velocity
+            #             feedrate_profile_per_min = feedrate_profile_per_s * 60.0
 
-            #             print(f"Robot rel_vel: {rel_velocity}")
-            #             print(f"Time param velocity: {velocity}")
-            #             print(f"Feedrate: {feedrate_profile_per_min}")
-            #             print(f"Feedratef rom gcode: {self.F}")
-            #             print(f"Move time: {path_time}")
-            #             print(f"Path length: {path.length}")
-            #             print(f"Path distance filament: {self.path_extrusion}")
+            #             # print(f"Robot rel_vel: {rel_velocity}")
+            #             # print(f"Time param velocity: {velocity}")
+            #             # print(f"Feedrate: {feedrate_profile_per_min}")
+            #             # print(f"Feedratef rom gcode: {self.F}")
+            #             print(f"Path time: {path_time}")
+            #             # print(f"Path length: {path.length}")
+            #             # print(f"Path distance filament: {self.path_extrusion}")
 
             #             self.tool.set_feedrate(feedrate_profile_per_min)
             #             time.sleep(timestep)
@@ -152,8 +151,8 @@ class GCodeCommands():
 
             # Wait here for path motion to finish and join the thread
             thread.join()
-            end = time.perf_counter()
-            print(f"Move time: {end-start}s\n")
+            # end = time.perf_counter()
+            # print(f"Move time: {end-start}s\n")
 
             # Thread done aka move done aka stop extrusion immidiately
             self.tool.set_feedrate(0.0)
@@ -163,10 +162,12 @@ class GCodeCommands():
         elif self.read_param(self.interval[0],'E') is not False:
             # Target extrusion distance and time elapsed at given feedrate
             target_E = self.read_param(self.interval[0],'E')
-            sleep_time = self.tool.calculate_delta_t(target_E,self.E,self.F)
+            sleep_time = self.tool.calculate_delta_t(self.E,target_E,self.F)
 
             # set retraction/un-retraction feedrate
             self.tool.set_feedrate(np.sign(sleep_time)*self.F)
+            print(f"Feedrate: {np.sign(sleep_time)*self.F}")
+            print(f"np sign: {np.sign(sleep_time)}")
 
             # Sleep
             time.sleep(abs(sleep_time))
