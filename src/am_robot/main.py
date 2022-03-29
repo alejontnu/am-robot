@@ -88,37 +88,33 @@ def main():
 
         # Check bounds for build area
         # proceed = executor.is_build_feasible()
-        proceed = True
         # executor.robot.gripper.clamp(0.005)
 
         # Uses force feedback to determine where n points of the print bed are located
-        if proceed:
-            if not args.skip_probe:
-                bed_found = executor.probe_bed()
-            else:
-                bed_found = True
-
-            if bed_found and not args.skip_segments:
-                # Make a bed mesh for knowing the surface flatness and location of build area
-                if args.visualize:
-                    executor.visualize_bed_mesh()
-                    input("When happy with bed mesh press enter...")
-
-                time_elapsed_task = time.time()
-
-                try:
-                    executor.run_code_segments()
-                except KeyboardInterrupt:
-                    executor.tool.set_feedrate(0.0)
-                    executor.tool.set_nozzletemp(0.0)
-                    exit()
-
-                time_elapsed_task = time.time() - time_elapsed_task
-
-            else:
-                print("One of more points of the bed was not found, check and level bed roughly")
+        if not args.skip_probe:
+            bed_found = executor.probe_bed()
         else:
-            print("Build is infeasible due to space constraints. Skipped to end...")
+            bed_found = True
+
+        if bed_found and not args.skip_segments:
+            # Make a bed mesh for knowing the surface flatness and location of build area
+            if args.visualize:
+                executor.visualize_bed_mesh()
+                input("When happy with bed mesh press enter...")
+
+            time_elapsed_task = time.time()
+
+            try:
+                executor.run_code_segments()
+            except KeyboardInterrupt:
+                executor.tool.set_feedrate(0.0)
+                executor.tool.set_nozzletemp(0.0)
+                exit()
+
+            time_elapsed_task = time.time() - time_elapsed_task
+
+        else:
+            print("One of more points of the bed was not found, check and level bed roughly")
 
     time_elapsed_total = time.time() - time_elapsed_total
 
