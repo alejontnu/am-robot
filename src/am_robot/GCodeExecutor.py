@@ -625,42 +625,21 @@ class GCodeExecutor(GCodeCommands):
         self.bed_plane_transformation_matrix = self.rotation_matrix(x_rot=-x_rot,y_rot=y_rot)
 
     def rotation_matrix(self,x_rot=0.0,y_rot=0.0,z_rot=0.0):
-        Rz = np.matrix([[math.cos(z_rot),-math.sin(z_rot), 0.0,0.0],
-                        [math.sin(z_rot),math.cos(z_rot),0.0,0.0],
-                        [0.0,0.0,1.0,0.0],
-                        [0.0,0.0,0.0,1.0]])
-        Ry = np.matrix([[math.cos(y_rot),0.0,math.sin(y_rot),0.0],
-                        [0.0,1.0,0.0,0.0],
-                        [-math.sin(y_rot),0.0,math.cos(y_rot),0.0],
-                        [0.0,0.0,0.0,1.0]])
-        Rx = np.matrix([[1.0,0.0,0.0,0.0],
-                        [0.0,math.cos(x_rot),-math.sin(x_rot),0.0],
-                        [0.0,math.sin(x_rot),math.cos(x_rot),0.0],
-                        [0.0,0.0,0.0,1.0]])
-        R = np.matmul(Rz,np.matmul(Ry,Rx))
+        # Rz = np.matrix([[math.cos(z_rot),-math.sin(z_rot), 0.0,0.0],
+        #                 [math.sin(z_rot),math.cos(z_rot),0.0,0.0],
+        #                 [0.0,0.0,1.0,0.0],
+        #                 [0.0,0.0,0.0,1.0]])
+        # Ry = np.matrix([[math.cos(y_rot),0.0,math.sin(y_rot),0.0],
+        #                 [0.0,1.0,0.0,0.0],
+        #                 [-math.sin(y_rot),0.0,math.cos(y_rot),0.0],
+        #                 [0.0,0.0,0.0,1.0]])
+        # Rx = np.matrix([[1.0,0.0,0.0,0.0],
+        #                 [0.0,math.cos(x_rot),-math.sin(x_rot),0.0],
+        #                 [0.0,math.sin(x_rot),math.cos(x_rot),0.0],
+        #                 [0.0,0.0,0.0,1.0]])
+        # R = np.matmul(Rz,np.matmul(Ry,Rx))
 
         return rotation_from_angles([z_rot, y_rot, x_rot], 'ZYX')
-
-    def bed_level_compensation(self,point):
-        '''
-        Calculates the vertical compensation needed due to non-horizontal build plane. Compensation is made based on z height equal to 0, making the z component of 'point' excessive and unused
-
-        Input:
-        -----
-        point: [float,float,float]
-            A point [x,y,z] for where compensation is calculated
-
-        Returns:
-        -----
-        z_compensation: float
-            A value corresponding to the offset from the bed plane in the Z direction at z=0
-
-        '''
-        xyz_offsets = [0,0,0]
-        xyz_offsets[0] = -(self.bed_plane_abcd[1]*point[1] + self.bed_plane_abcd[2]*point[2] + self.bed_plane_abcd[3])
-        xyz_offsets[1] = -(self.bed_plane_abcd[0]*point[0] + self.bed_plane_abcd[2]*point[2] + self.bed_plane_abcd[3])
-        xyz_offsets[2] = -(self.bed_plane_abcd[0]*point[0] + self.bed_plane_abcd[1]*point[1] + self.bed_plane_abcd[3])
-        return xyz_offsets
 
     def does_model_fit_bed(self):
         '''
