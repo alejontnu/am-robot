@@ -90,6 +90,9 @@ class GCodeExecutor(GCodeCommands):
         self.F = 0
         self.move_type = 'idle'
         self.extrusion_mode = 'absolute'
+        self.X_positioning = 'abs'
+        self.Y_positioning = 'abs'
+        self.Z_positioning = 'abs'
 
         self.robot = robot
         self.tool = tool
@@ -601,7 +604,7 @@ class GCodeExecutor(GCodeCommands):
         c = ABxAC[2]
         d = -(a*A[0] + b*A[1] + c*A[2])
         self.bed_plane_abcd = [a,b,c,d]
-        print(f"Bed plane coefficients: {self.bed_plane_abcd}")
+        # print(f"Bed plane coefficients: {self.bed_plane_abcd}")
 
     def calculate_bed_rotation_matrice(self):
         bed_normal_vec = np.array(self.bed_plane_abcd[0:3])
@@ -822,17 +825,54 @@ class GCodeExecutor(GCodeCommands):
         if interval[0] == interval[1]:
             path_points.append(self.robot.read_current_pose())
         for point in range(interval[0],interval[1]+1):
+            start_point = np.array([self.X,self.Y,self.Z])
             for key in self.gcodelines[point].params:
-                if key == 'X' or key == 'Y' or key == 'Z' or key == 'E':
-                    self.__dict__[key] = self.read_param(point,key)
-                    if key == 'E':
-                        if self.extrusion_mode == 'absolute':
-                            self.path_extrusion = self.__dict__[key]
-                        else:
-                            self.path_extrusion += self.__dict__[key]
+                if key == 'X' or key == 'Y' or key == 'Z':
+                    if self.X_positioning == 'rel' or self.Y_positioning == 'rel' or self.Z_positioning == 'rel':
+                        self.__dict__[key] += self.read_param(point,key)
+                    else:
+                        self.__dict__[key] = self.read_param(point,key)
+                if key == 'E':
+                    if self.extrusion_mode == 'abs':
+                        self.__dict__[key] = self.read_param(point,key)
+                        self.path_extrusion = self.__dict__[key]
+                    else:
+                        self.__dict__[key] += self.read_param(point,key)
+                        self.path_extrusion += self.__dict__[key]
             base_point = np.array([self.X,self.Y,self.Z])
             transformed_point = np.matmul(self.bed_plane_transformation_matrix,base_point)
-            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2])
+
+            # Find tangent vector from point to point
+            tangent_vec = base_point - start_point
+            normal_vec = np.copy(tangent_vec)
+            normal_vec[2] = 0.0
+            normal_vec = np.matmul(self.rotation_matrix(z_rot=math.pi/2),normal_vec)
+            fs_binormal_vec = np.cross(tangent_vec,normal_vec)
+            horizontal_plane_normal_vec = np.array([0.0,0.0,1.0])  # Normal vector down
+
+            # Decompose the binomial vector into x-z and y-z plane
+            fs_binormal_vec_xz = np.copy(fs_binormal_vec)
+            fs_binormal_vec_xz[1] = 0.0
+            fs_binormal_vec_yz = np.copy(fs_binormal_vec)
+            fs_binormal_vec_yz[0] = 0.0
+
+            if not np.any(fs_binormal_vec_xz):
+                y_rot = 0.0
+            else:
+                y_rot = self.angle_between(fs_binormal_vec_xz,horizontal_plane_normal_vec)
+                if abs(y_rot) > 60.0:
+                    y_rot = np.sign(y_rot)*60.0
+            if not np.any(fs_binormal_vec_yz):
+                x_rot = 0.0
+            else:
+                x_rot = self.angle_between(fs_binormal_vec_yz,horizontal_plane_normal_vec)
+                if abs(x_rot) > 60.0:
+                    x_rot = np.sign(x_rot)*60.0
+
+            print(f"Angle between plane normals - Rotation around x-axis: {x_rot*180/math.pi}")
+            print(f"Angle between plane normals - Rotation around y-axis: {y_rot*180/math.pi}")
+
+            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2],b=-y_rot,c=x_rot)
             path_points.append(affine)
         path_motion, path = self.robot.make_path_motion(path_points,corner_blending)
         if self.extrusion_mode == 'absolute':
@@ -854,6 +894,9 @@ class GCodeExecutor(GCodeCommands):
         The target point with bed level compensation and offset from G-code home location in relation to robot zero
 
         '''
+
+        print("Target point method!")
+
         base_point = np.array([self.read_param(line_number,'X'),self.read_param(line_number,'Y'),self.Z])
         transformed_point = np.matmul(self.bed_plane_transformation_matrix,base_point)
         return transformed_point[0] + self.gcode_home_pose_vec[0], transformed_point[1] + self.gcode_home_pose_vec[1], transformed_point[2] + self.gcode_home_pose_vec[2]
@@ -887,11 +930,6 @@ class GCodeExecutor(GCodeCommands):
             getattr(self,command,getattr(self,'default'))()
 
         elif command[0] == 'G':
-
-            # Find current / new z-height %% Implement for each line instead of start of interval, ignored if no new value anyway %%
-            if self.read_param(self.interval[0],'Z') is not False:
-                self.Z = self.read_param(self.interval[0],'Z')
-
             # Find desired feedrate / working speed / max velocity
             if self.read_param(self.interval[0],'F') is not False:
                 self.F = self.read_param(self.interval[0],'F')

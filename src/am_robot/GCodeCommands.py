@@ -95,6 +95,7 @@ class GCodeCommands():
             # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
             if self.read_param(self.interval[0],'E') is not False:
 
+                # Due to no state feedback, extrusion is set as an approximate average
                 self.tool.set_feedrate(self.F / 60.0)
 
                 # parametrize the path to get states
@@ -184,10 +185,30 @@ class GCodeCommands():
         print("Counter-clockwise arc/circle extrusion move - Not implemented (Robot specific)")
 
     def G10(self):
-        print("Retraction move - Not implemented")
+        print("Retraction move - Hardware -2mm")
+        sleep_time = self.tool.calculate_delta_t(0.0,-2.0,7800)
+
+        # set retraction/un-retraction feedrate
+        self.tool.set_feedrate(np.sign(sleep_time)*7800)
+
+        # Sleep
+        time.sleep(abs(sleep_time))
+
+        # Stop retraction/un-retraction
+        self.tool.set_feedrate(0.0)
 
     def G11(self):
-        print("Recover move (after retraction) - Not implemented")
+        print("Recover move (after retraction) - hardware 2mm")
+        sleep_time = self.tool.calculate_delta_t(0.0,2.0,7800)
+
+        # set retraction/un-retraction feedrate
+        self.tool.set_feedrate(np.sign(sleep_time)*7800)
+
+        # Sleep
+        time.sleep(abs(sleep_time))
+
+        # Stop retraction/un-retraction
+        self.tool.set_feedrate(0.0)
 
     def G20(self):
         print("set units to inches")
@@ -218,14 +239,12 @@ class GCodeCommands():
 
     def G90(self):
         print("Use absolute coordinates")
-        self.E_positioning = 'abs'
         self.X_positioning = 'abs'
         self.Y_positioning = 'abs'
         self.Z_positioning = 'abs'
 
     def G91(self):
         print("Use relative coordinates")
-        self.E_positioning = 'rel'
         self.X_positioning = 'rel'
         self.Y_positioning = 'rel'
         self.Z_positioning = 'rel'

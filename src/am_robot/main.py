@@ -95,6 +95,7 @@ def main():
             bed_found = executor.probe_bed()
         else:
             bed_found = True
+            executor.bed_plane_transformation_matrix = executor.rotation_matrix()
 
         if bed_found and not args.skip_segments:
             # Make a bed mesh for knowing the surface flatness and location of build area
