@@ -173,6 +173,8 @@ class FrankaRobot(AbstractRobot):
         self.set_dynamic_rel(self.robot_dynamic_rel)  # Default 0.1
 
         # Defining tool_frame
+        # self.tool_frame = Affine(0.03414, -0.0111, -0.09119, 0.0, -math.pi/4, 0.0)
+        # self.tool_frame_vector = [0.03414, -0.0111, -0.09119, 0.0, -math.pi/4, 0.0]
         self.tool_frame = Affine(0.03414, -0.0111, -0.09119, 0.0, -math.pi/4, 0.0)
         self.tool_frame_vector = [0.03414, -0.0111, -0.09119, 0.0, -math.pi/4, 0.0]
 

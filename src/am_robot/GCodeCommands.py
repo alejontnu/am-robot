@@ -83,7 +83,11 @@ class GCodeCommands():
             self.robot.execute_move(frame=self.robot.tool_frame,motion=motion)
 
     def G1(self):
+        # If there is any movement...
         if (self.read_param(self.interval[0],'X') is not False) or (self.read_param(self.interval[0],'Y') is not False) or (self.read_param(self.interval[0],'Z') is not False):
+
+            # setting this to 1800 because reasons...
+            #F = 1800.0
 
             # set dynamic rel and relative max velocity based on feedrate
             rel_velocity = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel*1000)
@@ -96,7 +100,7 @@ class GCodeCommands():
             if self.read_param(self.interval[0],'E') is not False:
 
                 # Due to no state feedback, extrusion is set as an approximate average
-                self.tool.set_feedrate(self.F / 60.0)
+                self.tool.set_feedrate(self.F / 20.0)
 
                 # parametrize the path to get states
                 # timestep = 0.01
@@ -163,12 +167,14 @@ class GCodeCommands():
         elif self.read_param(self.interval[0],'E') is not False:
             # Target extrusion distance and time elapsed at given feedrate
             target_E = self.read_param(self.interval[0],'E')
+            if self.extrusion_mode == 'rel':
+                self.E = 0.0
             sleep_time = self.tool.calculate_delta_t(self.E,target_E,self.F)
 
             # set retraction/un-retraction feedrate
-            self.tool.set_feedrate(np.sign(sleep_time)*self.F)
-            print(f"Feedrate: {np.sign(sleep_time)*self.F}")
-            print(f"np sign: {np.sign(sleep_time)}")
+            self.tool.set_feedrate(np.sign(sleep_time)*self.F/45.0)
+            # print(f"Feedrate: {np.sign(sleep_time)*self.F}")
+            # print(f"np sign: {np.sign(sleep_time)}")
 
             # Sleep
             time.sleep(abs(sleep_time))
@@ -186,26 +192,26 @@ class GCodeCommands():
 
     def G10(self):
         print("Retraction move - Hardware -2mm")
-        sleep_time = self.tool.calculate_delta_t(0.0,-2.0,7800)
+        sleep_time = 2.0/60.0
 
         # set retraction/un-retraction feedrate
-        self.tool.set_feedrate(np.sign(sleep_time)*7800)
+        self.tool.set_feedrate(-3600.0)
 
         # Sleep
-        time.sleep(abs(sleep_time))
+        time.sleep(sleep_time)
 
         # Stop retraction/un-retraction
         self.tool.set_feedrate(0.0)
 
     def G11(self):
         print("Recover move (after retraction) - hardware 2mm")
-        sleep_time = self.tool.calculate_delta_t(0.0,2.0,7800)
+        sleep_time = 2.0/60.0
 
         # set retraction/un-retraction feedrate
-        self.tool.set_feedrate(np.sign(sleep_time)*7800)
+        self.tool.set_feedrate(3600.0)
 
         # Sleep
-        time.sleep(abs(sleep_time))
+        time.sleep(sleep_time)
 
         # Stop retraction/un-retraction
         self.tool.set_feedrate(0.0)

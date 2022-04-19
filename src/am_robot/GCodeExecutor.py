@@ -360,9 +360,9 @@ class GCodeExecutor(GCodeCommands):
                 break
 
             # Check the angle between consecutive position vectors
-            elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/6.0:  # An overall turning radius would maybe be better
-                interval = [self.interval[1]+1,line_number-1]
-                break
+            # elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/6.0:  # An overall turning radius would maybe be better
+            #     interval = [self.interval[1]+1,line_number-1]
+            #     break
 
             else:
                 # Typically when the next line is just another X-Y coordinate
@@ -822,8 +822,7 @@ class GCodeExecutor(GCodeCommands):
             self.path_extrusion = 0
 
         path_points = []
-        if interval[0] == interval[1]:
-            path_points.append(self.robot.read_current_pose())
+        path_points.append(self.robot.read_current_pose())
         for point in range(interval[0],interval[1]+1):
             start_point = np.array([self.X,self.Y,self.Z])
             for key in self.gcodelines[point].params:
@@ -838,41 +837,41 @@ class GCodeExecutor(GCodeCommands):
                         self.path_extrusion = self.__dict__[key]
                     else:
                         self.__dict__[key] += self.read_param(point,key)
-                        self.path_extrusion += self.__dict__[key]
+                        self.path_extrusion = self.__dict__[key]
             base_point = np.array([self.X,self.Y,self.Z])
             transformed_point = np.matmul(self.bed_plane_transformation_matrix,base_point)
 
             # Find tangent vector from point to point
-            tangent_vec = base_point - start_point
-            normal_vec = np.copy(tangent_vec)
-            normal_vec[2] = 0.0
-            normal_vec = np.matmul(self.rotation_matrix(z_rot=math.pi/2),normal_vec)
-            fs_binormal_vec = np.cross(tangent_vec,normal_vec)
-            horizontal_plane_normal_vec = np.array([0.0,0.0,1.0])  # Normal vector down
+            # tangent_vec = base_point - start_point
+            # normal_vec = np.copy(tangent_vec)
+            # normal_vec[2] = 0.0
+            # normal_vec = np.matmul(self.rotation_matrix(z_rot=math.pi/2),normal_vec)
+            # fs_binormal_vec = np.cross(tangent_vec,normal_vec)
+            # horizontal_plane_normal_vec = np.array([0.0,0.0,1.0])  # Normal vector down
 
-            # Decompose the binomial vector into x-z and y-z plane
-            fs_binormal_vec_xz = np.copy(fs_binormal_vec)
-            fs_binormal_vec_xz[1] = 0.0
-            fs_binormal_vec_yz = np.copy(fs_binormal_vec)
-            fs_binormal_vec_yz[0] = 0.0
+            # # Decompose the binomial vector into x-z and y-z plane
+            # fs_binormal_vec_xz = np.copy(fs_binormal_vec)
+            # fs_binormal_vec_xz[1] = 0.0
+            # fs_binormal_vec_yz = np.copy(fs_binormal_vec)
+            # fs_binormal_vec_yz[0] = 0.0
 
-            if not np.any(fs_binormal_vec_xz):
-                y_rot = 0.0
-            else:
-                y_rot = self.angle_between(fs_binormal_vec_xz,horizontal_plane_normal_vec)
-                if abs(y_rot) > 60.0:
-                    y_rot = np.sign(y_rot)*60.0
-            if not np.any(fs_binormal_vec_yz):
-                x_rot = 0.0
-            else:
-                x_rot = self.angle_between(fs_binormal_vec_yz,horizontal_plane_normal_vec)
-                if abs(x_rot) > 60.0:
-                    x_rot = np.sign(x_rot)*60.0
+            # if not np.any(fs_binormal_vec_xz):
+            #     y_rot = 0.0
+            # else:
+            #     y_rot = self.angle_between(fs_binormal_vec_xz,horizontal_plane_normal_vec)
+            #     if abs(y_rot) > 30.0:
+            #         y_rot = np.sign(y_rot)*30.0
+            # if not np.any(fs_binormal_vec_yz):
+            #     x_rot = 0.0
+            # else:
+            #     x_rot = self.angle_between(fs_binormal_vec_yz,horizontal_plane_normal_vec)
+            #     if abs(x_rot) > 30.0:
+            #         x_rot = np.sign(x_rot)*30.0
 
-            print(f"Angle between plane normals - Rotation around x-axis: {x_rot*180/math.pi}")
-            print(f"Angle between plane normals - Rotation around y-axis: {y_rot*180/math.pi}")
+            # print(f"Angle between plane normals - Rotation around x-axis: {x_rot*180/math.pi}")
+            # print(f"Angle between plane normals - Rotation around y-axis: {y_rot*180/math.pi}")
 
-            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2],b=-y_rot,c=x_rot)
+            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2] - 0.0002)#,b=-y_rot,c=x_rot)
             path_points.append(affine)
         path_motion, path = self.robot.make_path_motion(path_points,corner_blending)
         if self.extrusion_mode == 'absolute':
@@ -906,7 +905,7 @@ class GCodeExecutor(GCodeCommands):
         for interval in self.list_of_intervals:
             progress = math.floor((100 * interval[0])/(self.number_of_lines - 1.0))
             if progress > prev_progress:
-                print(f"Current progress is {progress}%")
+                print(f"Current progress is {progress}%, on line {interval[0]} of {self.number_of_lines}.")
                 prev_progress = progress
             self.interval = interval
             self.run_code_segment()
