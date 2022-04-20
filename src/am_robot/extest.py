@@ -29,6 +29,13 @@ def main():
 
     feedrate = 600
 
+    set_nozzletemp(200.0,ser)
+
+    while True:
+        temp = read_serial(ser)
+        if temp > 200.0:
+            break
+
     print("Starting extrusion at 10mm/s")
     set_feedrate(feedrate_to_motor_frequency(0.0),ser)
 
@@ -39,6 +46,8 @@ def main():
 
     print("Done! Stopping extrusion...")
     set_feedrate(feedrate_to_motor_frequency(0.0),ser)
+
+    set_nozzletemp(0.0,ser)
 
     ser.close()
 
@@ -55,14 +64,16 @@ def read_serial(ser):
         [val] = struct.unpack('f',b[1:5])
         print(f"Temperature is {val} degree celsius")
         if letter2 == 69:
-            [val] = struct.unpack('f',b[6:10])
-            print(f"Extrusion rate is {val} Hz")
+            [val2] = struct.unpack('f',b[6:10])
+            print(f"Extrusion rate is {val2} Hz")
+        return val
     elif letter1 == 69:
         [val] = struct.unpack('f',b[1:5])
         print(f"Extrusion rate is {val} Hz")
         if letter2 == 84:
-            [val] = struct.unpack('f',b[6:10])
-            print(f"Temperature is {val} degree celsius")
+            [val2] = struct.unpack('f',b[6:10])
+            print(f"Temperature is {val2} degree celsius")
+            return val2
     else:
         print("Value other than T or E read. Ignoring...")
 

@@ -360,9 +360,9 @@ class GCodeExecutor(GCodeCommands):
                 break
 
             # Check the angle between consecutive position vectors
-            # elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/6.0:  # An overall turning radius would maybe be better
-            #     interval = [self.interval[1]+1,line_number-1]
-            #     break
+            elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/3.0:  # An overall turning radius would maybe be better
+                interval = [self.interval[1]+1,line_number-1]
+                break
 
             else:
                 # Typically when the next line is just another X-Y coordinate

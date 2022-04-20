@@ -100,7 +100,7 @@ class GCodeCommands():
             if self.read_param(self.interval[0],'E') is not False:
 
                 # Due to no state feedback, extrusion is set as an approximate average
-                self.tool.set_feedrate(self.F / 20.0)
+                self.tool.set_feedrate(self.F / 40.0)
 
                 # parametrize the path to get states
                 # timestep = 0.01
@@ -195,7 +195,7 @@ class GCodeCommands():
         sleep_time = 2.0/60.0
 
         # set retraction/un-retraction feedrate
-        self.tool.set_feedrate(-3600.0)
+        self.tool.set_feedrate(-1800)
 
         # Sleep
         time.sleep(sleep_time)
@@ -208,7 +208,7 @@ class GCodeCommands():
         sleep_time = 2.0/60.0
 
         # set retraction/un-retraction feedrate
-        self.tool.set_feedrate(3600.0)
+        self.tool.set_feedrate(1800)
 
         # Sleep
         time.sleep(sleep_time)

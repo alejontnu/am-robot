@@ -40,6 +40,7 @@ class ExtruderTool(AbstractTool):
         self.T_tool = tool_transformation
 
         if not skip_connection:
+            print(self.port)
             self.ser = serial.Serial(self.port)
 
         self.motor_steps_per_revolution = 400.0
