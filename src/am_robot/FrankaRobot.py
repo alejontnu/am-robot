@@ -262,6 +262,9 @@ class FrankaRobot(AbstractRobot):
     def make_affine_object(self, x, y, z, a=0, b=0, c=0):
         return Affine(x, y, z, a, b, c)
 
+    def set_dynamic_motion_data(self, dynamic_rel):
+        return MotionData(dynamic_rel)
+
     def make_waypoint(self, affine,velocity_rel=1.0):
         waypoint = Waypoint(affine)
         waypoint["velocity_rel"] = velocity_rel

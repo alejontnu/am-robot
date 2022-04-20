@@ -91,7 +91,10 @@ class GCodeCommands():
 
             # set dynamic rel and relative max velocity based on feedrate
             rel_velocity = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel*1000)
-            self.robot.set_velocity_rel(rel_velocity)
+            # self.robot.set_velocity_rel(rel_velocity)
+            
+            motion_data = self.robot.set_dynamic_motion_data(0.2)
+            motion_data.velocity_rel = rel_velocity
 
             # Make path motion trajectory, the additional path is the more fancy one that is not yet implemented in Robot.move() but used for its time parametrization states
             path_motion, path = self.make_path(self.interval,0.01)  # PathMotion gives smooth movement compared to WayPointMovement
@@ -126,7 +129,7 @@ class GCodeCommands():
 
             # start = time.perf_counter()
             # feed path motion to robot and move using a separate thread
-            thread = self.robot.execute_threaded_move(frame=self.robot.tool_frame,motion=path_motion)  # Just starts move in a thread with some initialization
+            thread = self.robot.execute_threaded_move(frame=self.robot.tool_frame,motion=path_motion,data=motion_data)  # Just starts move in a thread with some initialization
 
             # if self.read_param(self.interval[0],'E') is not False:
             #     prev_velocity = -100.0
