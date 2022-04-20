@@ -757,6 +757,43 @@ class GCodeExecutor(GCodeCommands):
         v2_u = self.unit_vector(v2)
         return np.arccos(np.clip(np.dot(v1_u, v2_u), -3.14, 3.14))
 
+    def slope_angles(self,start_point,end_point):
+        # Find tangent vector from point to point
+        tangent_vec = end_point - start_point
+        normal_vec = np.copy(tangent_vec)
+        normal_vec[2] = 0.0
+        normal_vec = np.matmul(self.rotation_matrix(z_rot=math.pi/2),normal_vec)
+        fs_binormal_vec = np.cross(tangent_vec,normal_vec)
+        horizontal_plane_normal_vec = np.array([0.0,0.0,1.0])  # Normal vector down
+
+        # Decompose the binomial vector into x-z and y-z plane
+        fs_binormal_vec_xz = np.copy(fs_binormal_vec)
+        fs_binormal_vec_xz[1] = 0.0
+        fs_binormal_vec_yz = np.copy(fs_binormal_vec)
+        fs_binormal_vec_yz[0] = 0.0
+
+        if not np.any(fs_binormal_vec_xz):
+            y_rot = 0.0
+        else:
+            y_rot = self.angle_between(fs_binormal_vec_xz,horizontal_plane_normal_vec)
+            if abs(y_rot) > 30.0:
+                y_rot = np.sign(y_rot)*30.0
+        if not np.any(fs_binormal_vec_yz):
+            x_rot = 0.0
+        else:
+            x_rot = self.angle_between(fs_binormal_vec_yz,horizontal_plane_normal_vec)
+            if abs(x_rot) > 30.0:
+                x_rot = np.sign(x_rot)*30.0
+        if not np.any(fs_binormal_vec):
+            slope = 0.0
+        else:
+            slope = self.angle_between(fs_binormal_vec,horizontal_plane_normal_vec)
+
+        # print(f"Angle between plane normals - Rotation around x-axis: {x_rot*180/math.pi}")
+        # print(f"Angle between plane normals - Rotation around y-axis: {y_rot*180/math.pi}")
+
+        return [x_rot, y_rot, slope]
+
     def make_waypoints(self,interval):
         '''
         Generate waypoint objects for motion trajectory to follow
@@ -841,35 +878,7 @@ class GCodeExecutor(GCodeCommands):
             base_point = np.array([self.X,self.Y,self.Z])
             transformed_point = np.matmul(self.bed_plane_transformation_matrix,base_point)
 
-            # Find tangent vector from point to point
-            # tangent_vec = base_point - start_point
-            # normal_vec = np.copy(tangent_vec)
-            # normal_vec[2] = 0.0
-            # normal_vec = np.matmul(self.rotation_matrix(z_rot=math.pi/2),normal_vec)
-            # fs_binormal_vec = np.cross(tangent_vec,normal_vec)
-            # horizontal_plane_normal_vec = np.array([0.0,0.0,1.0])  # Normal vector down
-
-            # # Decompose the binomial vector into x-z and y-z plane
-            # fs_binormal_vec_xz = np.copy(fs_binormal_vec)
-            # fs_binormal_vec_xz[1] = 0.0
-            # fs_binormal_vec_yz = np.copy(fs_binormal_vec)
-            # fs_binormal_vec_yz[0] = 0.0
-
-            # if not np.any(fs_binormal_vec_xz):
-            #     y_rot = 0.0
-            # else:
-            #     y_rot = self.angle_between(fs_binormal_vec_xz,horizontal_plane_normal_vec)
-            #     if abs(y_rot) > 30.0:
-            #         y_rot = np.sign(y_rot)*30.0
-            # if not np.any(fs_binormal_vec_yz):
-            #     x_rot = 0.0
-            # else:
-            #     x_rot = self.angle_between(fs_binormal_vec_yz,horizontal_plane_normal_vec)
-            #     if abs(x_rot) > 30.0:
-            #         x_rot = np.sign(x_rot)*30.0
-
-            # print(f"Angle between plane normals - Rotation around x-axis: {x_rot*180/math.pi}")
-            # print(f"Angle between plane normals - Rotation around y-axis: {y_rot*180/math.pi}")
+            #[x_rot,y_rot,slope] = self.slope_angles(start_point,base_point)
 
             affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2] - 0.0002)#,b=-y_rot,c=x_rot)
             path_points.append(affine)
@@ -1029,6 +1038,10 @@ class GCodeExecutor(GCodeCommands):
         z_coordinates = []
         colors = []
 
+        color_code_index = 1
+        color_code = ['Feedrate [mm/min]','Slope angle [degrees]']
+        color_choice = [0,0]
+
         print("May have issues with 1 million+ points...")
         # Points here is vertices in the plot and corresponds to G-code lines
 
@@ -1039,7 +1052,9 @@ class GCodeExecutor(GCodeCommands):
                     x_coordinates.append(self.X * 1000)
                     y_coordinates.append(self.Y * 1000)
                     z_coordinates.append(self.Z * 1000)
-                    colors.append(self.F)
+                    color_choice[0] = self.F
+                    if color_code_index != 1:
+                        colors.append(color_choice[color_code_index])
 
                     # if x_coordinates[-1] == x_coordinates[-3] and y_coordinates[-1] == y_coordinates[-3] and z_coordinates[-1] == z_coordinates[-3]:
                     #     x_coordinates = x_coordinates[:-2]
@@ -1049,13 +1064,20 @@ class GCodeExecutor(GCodeCommands):
 
                 for point in range(interval[0],interval[1]+1):
                     if (self.read_param(point,'E') is not False) and ((self.read_param(point,'E') > self.E) or self.extrusion_mode == 'relative') and (self.read_param(interval[0],'X') or self.read_param(interval[0],'Y') or self.read_param(interval[0],'Z')):
+                        start_point = np.array([self.X,self.Y,self.Z])
                         for key in self.gcodelines[point].params:
                             self.__dict__[key] = self.read_param(point,key)
 
                         x_coordinates.append(self.X * 1000)
                         y_coordinates.append(self.Y * 1000)
                         z_coordinates.append(self.Z * 1000)
-                        colors.append(self.F)
+                        color_choice[0] = self.F
+                        end_point = np.array([self.X,self.Y,self.Z])
+                        [_,__,slope] = self.slope_angles(start_point,end_point)
+                        color_choice[1] = slope*(180/math.pi)
+                        if point == interval[0] and color_code_index == 1:
+                            colors.append(color_choice[color_code_index])
+                        colors.append(color_choice[color_code_index])
 
                     for key in self.gcodelines[point].params:
                         self.__dict__[key] = self.read_param(point,key)
@@ -1086,12 +1108,12 @@ class GCodeExecutor(GCodeCommands):
             line=dict(
                 width=5,
                 color=colors,
-                cmin=0,
-                cmax=self.Fmax[1],
+                cmin=min(colors),
+                cmax=max(colors),
                 colorbar=dict(
                     borderwidth=0,
                     title=dict(
-                        text='Feedrate [mm/min]'
+                        text=color_code[color_code_index]
                     )
                 ),
                 colorscale=[[0,'rgb(0,0,255)'],[1,'rgb(255,0,0)']]

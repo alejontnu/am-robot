@@ -6,7 +6,7 @@ from am_robot.AbstractRobot import AbstractRobot
 
 if sys.platform == 'linux':
     from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion, Waypoint, Reaction, LinearRelativeMotion, Measure, PathMotion, MotionData
-    from _movex import Path, TimeParametrization, Trajectory
+    #from _movex import Path, TimeParametrization, Trajectory
 elif sys.platform == 'win32':
     try:
         from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion, Waypoint, Reaction, LinearRelativeMotion, Measure, PathMotion, MotionData
