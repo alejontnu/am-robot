@@ -6,7 +6,7 @@ from am_robot.AbstractRobot import AbstractRobot
 
 if sys.platform == 'linux':
     from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion, Waypoint, Reaction, LinearRelativeMotion, Measure, PathMotion, MotionData
-    #from _movex import Path, TimeParametrization, Trajectory
+    from _movex import Path, TimeParametrization, Trajectory
 elif sys.platform == 'win32':
     try:
         from frankx import Affine, LinearMotion, Robot, RobotMode, RobotState, WaypointMotion, JointMotion, Waypoint, Reaction, LinearRelativeMotion, Measure, PathMotion, MotionData
@@ -33,7 +33,7 @@ class FrankaRobot(AbstractRobot):
 
     '''
     def __init__(self, host, skip_connection):
-        '''
+        '''/ 40.0
         Initialize the Class object
 
         Input:
@@ -51,7 +51,7 @@ class FrankaRobot(AbstractRobot):
         super().__init__(host)
 
         self.host = host
-        
+
 
         # To skip connection (True) when not at robot for testing other functions without connection timeout
         if skip_connection is True:

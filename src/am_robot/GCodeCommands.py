@@ -88,13 +88,14 @@ class GCodeCommands():
 
             # setting this to 1800 because reasons...
             #F = 1800.0
+            velocity_multiplier = 1.0
 
             # set dynamic rel and relative max velocity based on feedrate
             rel_velocity = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel*1000)
             # self.robot.set_velocity_rel(rel_velocity)
-            
+
             motion_data = self.robot.set_dynamic_motion_data(0.2)
-            motion_data.velocity_rel = rel_velocity
+            motion_data.velocity_rel = rel_velocity * 2.0 * velocity_multiplier
 
             # Make path motion trajectory, the additional path is the more fancy one that is not yet implemented in Robot.move() but used for its time parametrization states
             path_motion, path = self.make_path(self.interval,0.01)  # PathMotion gives smooth movement compared to WayPointMovement
@@ -103,8 +104,7 @@ class GCodeCommands():
             if self.read_param(self.interval[0],'E') is not False:
 
                 # Due to no state feedback, extrusion is set as an approximate average
-                self.tool.set_feedrate(self.F / 40.0)
-
+                self.tool.set_feedrate(self.F * rel_velocity * velocity_multiplier)
                 # parametrize the path to get states
                 # timestep = 0.01
                 # vel_rels = [self.robot.robot.velocity_rel*self.robot.max_cart_vel]*7  # *7 for a 7 element list. 0.395 because ???

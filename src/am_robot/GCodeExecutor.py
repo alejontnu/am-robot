@@ -360,9 +360,9 @@ class GCodeExecutor(GCodeCommands):
                 break
 
             # Check the angle between consecutive position vectors
-            elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/3.0:  # An overall turning radius would maybe be better
-                interval = [self.interval[1]+1,line_number-1]
-                break
+            # elif (line_number > self.interval[1]+1) and self.turn_angle(line_number) > math.pi/3.0:  # An overall turning radius would maybe be better
+            #     interval = [self.interval[1]+1,line_number-1]
+            #     break
 
             else:
                 # Typically when the next line is just another X-Y coordinate
@@ -880,7 +880,7 @@ class GCodeExecutor(GCodeCommands):
 
             #[x_rot,y_rot,slope] = self.slope_angles(start_point,base_point)
 
-            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2] - 0.0002)#,b=-y_rot,c=x_rot)
+            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2])#,b=-y_rot,c=x_rot)
             path_points.append(affine)
         path_motion, path = self.robot.make_path_motion(path_points,corner_blending)
         if self.extrusion_mode == 'absolute':
@@ -911,6 +911,7 @@ class GCodeExecutor(GCodeCommands):
 
     def run_code_segments(self):
         prev_progress = 0
+        self.robot.set_velocity_rel(1.0)
         for interval in self.list_of_intervals:
             progress = math.floor((100 * interval[0])/(self.number_of_lines - 1.0))
             if progress > prev_progress:
