@@ -355,7 +355,17 @@ class GCodeExecutor(GCodeCommands):
                 break
 
             # Check if extrusion should stop
-            elif self.read_param(line_number-1,'E') is not False and self.read_param(line_number,'E') is False and self.read_command(line_number-1) == 'G1':
+            elif self.read_param(line_number-1,'E') is not False and self.read_param(line_number,'E') is False and self.read_command(line_number-1) == 'G1' and line_number != interval[0]:
+                interval = [self.interval[1]+1,line_number-1]
+                break
+
+            # Check if extrusion should start
+            elif self.read_param(line_number,'E') is not False and self.read_param(line_number-1,'E') is False and self.read_command(line_number-1) == 'G1' and line_number != interval[0]:
+                interval = [self.interval[1]+1,line_number-1]
+                break
+
+            # Check if no movement or extrusion
+            elif self.read_param(line_number,'X') is False and self.read_param(line_number,'Y') is False and self.read_param(line_number,'Z') is False and self.read_param(line_number,'E') is False:
                 interval = [self.interval[1]+1,line_number-1]
                 break
 
@@ -836,7 +846,7 @@ class GCodeExecutor(GCodeCommands):
             waypoints.append(waypoint)
         return waypoints
 
-    def make_path(self,interval,corner_blending):
+    def make_path(self,interval,corner_blending,motion_data):
         '''
         Generate waypoints for path following with a blending distance for smoothing motion when changing taget waypoint
 
@@ -859,7 +869,9 @@ class GCodeExecutor(GCodeCommands):
             self.path_extrusion = 0
 
         path_points = []
-        path_points.append(self.robot.read_current_pose())
+        start_pose = self.robot.read_current_pose()
+        z_translation = start_pose.vector()
+        z_rotation = start_pose.angles()
         for point in range(interval[0],interval[1]+1):
             start_point = np.array([self.X,self.Y,self.Z])
             for key in self.gcodelines[point].params:
@@ -877,10 +889,19 @@ class GCodeExecutor(GCodeCommands):
                         self.path_extrusion = self.__dict__[key]
             base_point = np.array([self.X,self.Y,self.Z])
             transformed_point = np.matmul(self.bed_plane_transformation_matrix,base_point)
+# use prev rotation if no extrusion i.e. pure translation move, fix relative going down to 0,0.4 etc, faster rotation?
+            if self.read_param(point,'E') is False:
+                
+            else:
+                [x_rot,y_rot,slope] = self.slope_angles(start_point,base_point)
 
-            #[x_rot,y_rot,slope] = self.slope_angles(start_point,base_point)
+                if point == interval[0]:
+                    first_point = self.robot.make_affine_object(z_translation[0],z_translation[1],z_translation[2],b=-y_rot,c=x_rot)
+                    path_points.append(first_point)
+                    self.robot.execute_reaction_move(frame=self.robot.tool_frame,motion=self.robot.make_linear_motion(first_point),data=motion_data)
+                    self.robot.recover_from_errors()
 
-            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2])#,b=-y_rot,c=x_rot)
+            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2],b=-y_rot,c=x_rot)
             path_points.append(affine)
         path_motion, path = self.robot.make_path_motion(path_points,corner_blending)
         if self.extrusion_mode == 'absolute':

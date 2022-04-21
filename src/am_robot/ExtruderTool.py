@@ -162,11 +162,11 @@ class ExtruderTool(AbstractTool):
 
             if letter1 == 84:
                 [temperature] = struct.unpack('f',b[1:5])
-                print(f"Temperature is {temperature} degree celsius")
+                # print(f"Temperature is {temperature} degree celsius")
                 return temperature
             elif letter2 == 84:
                 [temperature] = struct.unpack('f',b[6:10])
-                print(f"Temperature is {temperature} degree celsius")
+                # print(f"Temperature is {temperature} degree celsius")
                 return temperature
             else:
                 print("Value other than T read. Ignoring...")
@@ -193,7 +193,7 @@ class ExtruderTool(AbstractTool):
             if letter == 69:
                 [motor_frequency] = struct.unpack('f',b[1:5])
                 feedrate = self.motor_frequency_to_feedrate(motor_frequency)
-                print(f"Extrusion rate is {feedrate} mm/s")
+                # print(f"Extrusion rate is {feedrate} mm/s")
                 read_extrusion = False
                 return feedrate
             else:
