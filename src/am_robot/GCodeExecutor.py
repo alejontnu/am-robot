@@ -871,7 +871,6 @@ class GCodeExecutor(GCodeCommands):
         path_points = []
         start_pose = self.robot.read_current_pose()
         z_translation = start_pose.vector()
-        z_rotation = start_pose.angles()
         for point in range(interval[0],interval[1]+1):
             start_point = np.array([self.X,self.Y,self.Z])
             for key in self.gcodelines[point].params:
@@ -889,12 +888,15 @@ class GCodeExecutor(GCodeCommands):
                         self.path_extrusion = self.__dict__[key]
             base_point = np.array([self.X,self.Y,self.Z])
             transformed_point = np.matmul(self.bed_plane_transformation_matrix,base_point)
-# use prev rotation if no extrusion i.e. pure translation move, fix relative going down to 0,0.4 etc, faster rotation?
+            
+            # Pure translation for non-extrusion move, using previous rotation
             if self.read_param(point,'E') is False:
-                
+                y_rot = -z_translation[4]
+                x_rot = -z_translation[5]
+                if point == interval[0]:
+                    path_points.append(start_pose)
             else:
                 [x_rot,y_rot,slope] = self.slope_angles(start_point,base_point)
-
                 if point == interval[0]:
                     first_point = self.robot.make_affine_object(z_translation[0],z_translation[1],z_translation[2],b=-y_rot,c=x_rot)
                     path_points.append(first_point)

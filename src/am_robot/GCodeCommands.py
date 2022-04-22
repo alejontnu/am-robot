@@ -31,7 +31,7 @@ class GCodeCommands():
         print("E Relative - Abort if robot uses absolute")
         self.E_positioning = 'rel'
 
-    def M843(self):
+    def M84(self):
         print("Disable motors - Only disables extruder motor")
         self.tool.set_feedrate(0.0)
 
@@ -49,7 +49,7 @@ class GCodeCommands():
     def M107(self):
         print("Fan off - Not implemented")
 
-    def M1093(self):
+    def M109(self):
         print("Setting and waiting for hotend temperature")
         if self.read_param(self.interval[0],'S') is not False:
             temp_ref = self.read_param(self.interval[0],'S')
@@ -263,6 +263,31 @@ class GCodeCommands():
         print("Reset extruder/all distances")
         for key in self.gcodelines[self.interval[0]].params:
             self.__dict__[key] = self.read_param(self.interval[0],key)
+
+    def G101(self):
+        '''Start layer timer'''
+        self.layer_time_start = time.perf_counter()
+
+    def G102(self):
+        '''Check layer time and add a pause if under 30 seconds'''
+        self.layer_time_end = time.perf_counter()
+
+        try:
+            if self.layer_end_time-self.layer_time_start < 20.0:  # Less than 10 second layer pause at a distance
+                motion_data = self.robot.set_dynamic_motion_data(0.2)
+                move_one = self.robot.make_affine_object(-0.05,0.0,0.05)
+                m1 = self.robot.make_linear_relative_motion(move_one)
+                self.robot.execute_reaction_move(frame=self.robot.tool_frame,motion=m1,data=motion_data)
+                self.robot.recover_from_errors()
+
+                time.sleep(20.0-(self.layer_end_time-self.layer_time_start)+10.0)
+
+                move_two = self.robot.make_affine_object(0.05,0.0,-0.05)
+                m2 = self.robot.make_linear_relative_motion(move_two)
+                self.robot.execute_reaction_move(frame=self.robot.tool_frame,motion=m2,data=motion_data)
+                self.robot.recover_from_errors()
+        except AttributeError:
+            pass
 
 
 # Call commands like so:
