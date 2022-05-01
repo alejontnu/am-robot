@@ -88,6 +88,8 @@ class GCodeExecutor(GCodeCommands):
         self.Z = 0
         self.E = 0
         self.F = 0
+        self.x_rot = 0.0
+        self.y_rot = 0.0
         self.move_type = 'idle'
         self.extrusion_mode = 'absolute'
         self.X_positioning = 'abs'
@@ -891,19 +893,26 @@ class GCodeExecutor(GCodeCommands):
             
             # Pure translation for non-extrusion move, using previous rotation
             if self.read_param(point,'E') is False:
-                y_rot = -z_translation[4]
-                x_rot = -z_translation[5]
+                # y_rot = -z_translation[4]
+                # x_rot = -z_translation[5]
+                # if abs(y_rot) > abs(self.y_rot):
+                #     self.y_rot = y_rot
+                # if abs(x_rot) > abs(self.x_rot):
+                #     self.x_rot = x_rot
                 if point == interval[0]:
                     path_points.append(start_pose)
             else:
                 [x_rot,y_rot,slope] = self.slope_angles(start_point,base_point)
+                if abs(y_rot) > abs(self.y_rot):
+                    self.y_rot = y_rot
+                if abs(x_rot) > abs(self.x_rot):
+                    self.x_rot = x_rot
                 if point == interval[0]:
-                    first_point = self.robot.make_affine_object(z_translation[0],z_translation[1],z_translation[2],b=-y_rot,c=x_rot)
+                    first_point = self.robot.make_affine_object(z_translation[0],z_translation[1],z_translation[2],b=self.y_rot,c=self.x_rot)
                     path_points.append(first_point)
                     self.robot.execute_reaction_move(frame=self.robot.tool_frame,motion=self.robot.make_linear_motion(first_point),data=motion_data)
                     self.robot.recover_from_errors()
-
-            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2],b=-y_rot,c=x_rot)
+            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2],b=self.y_rot,c=self.x_rot)
             path_points.append(affine)
         path_motion, path = self.robot.make_path_motion(path_points,corner_blending)
         if self.extrusion_mode == 'absolute':
@@ -1063,8 +1072,8 @@ class GCodeExecutor(GCodeCommands):
         colors = []
 
         color_code_index = 1
-        color_code = ['Feedrate [mm/min]','Slope angle [degrees]']
-        color_choice = [0,0]
+        color_code = ['Feedrate [mm/min]','Slope angle [degrees]','Line number']
+        color_choice = [0,0,0]
 
         print("May have issues with 1 million+ points...")
         # Points here is vertices in the plot and corresponds to G-code lines
@@ -1077,6 +1086,7 @@ class GCodeExecutor(GCodeCommands):
                     y_coordinates.append(self.Y * 1000)
                     z_coordinates.append(self.Z * 1000)
                     color_choice[0] = self.F
+                    color_choice[2] = interval[0]
                     if color_code_index != 1:
                         colors.append(color_choice[color_code_index])
 
@@ -1096,6 +1106,7 @@ class GCodeExecutor(GCodeCommands):
                         y_coordinates.append(self.Y * 1000)
                         z_coordinates.append(self.Z * 1000)
                         color_choice[0] = self.F
+                        color_choice[2] = point
                         end_point = np.array([self.X,self.Y,self.Z])
                         [_,__,slope] = self.slope_angles(start_point,end_point)
                         color_choice[1] = slope*(180/math.pi)
@@ -1110,7 +1121,7 @@ class GCodeExecutor(GCodeCommands):
                 x_coordinates.append(None)
                 y_coordinates.append(None)
                 z_coordinates.append(None)
-                colors.append(0)
+                colors.append(color_choice[color_code_index])
 
             elif self.read_command(interval[0]) == 'G0':
                 for point in range(interval[0],interval[1]+1):

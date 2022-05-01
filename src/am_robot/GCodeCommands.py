@@ -96,7 +96,7 @@ class GCodeCommands():
             # self.robot.set_velocity_rel(rel_velocity)
 
             motion_data = self.robot.set_dynamic_motion_data(0.2)
-            motion_data.velocity_rel = rel_velocity * 3.0 * velocity_multiplier
+            motion_data.velocity_rel = rel_velocity * 5.0 * velocity_multiplier
 
             # Make path motion trajectory, the additional path is the more fancy one that is not yet implemented in Robot.move() but used for its time parametrization states
             path_motion, path = self.make_path(self.interval,0.001,motion_data)  # PathMotion gives smooth movement compared to WayPointMovement
