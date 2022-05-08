@@ -76,8 +76,15 @@ class GCodeCommands():
     def G0(self):
         # if self.read_param(interval[0],'X') is not False or self.read_param(interval[0],'Y') is not False or self.read_param(interval[0],'Z') is not False:
         if self.read_param(self.interval[0],'X') is not False and self.read_param(self.interval[0],'Y') is not False:
+            velocity_multiplier = 1.0
+
+            # set dynamic rel and relative max velocity based on feedrate
+            rel_velocity = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel*1000)
+            # self.robot.set_velocity_rel(rel_velocity)
+
             motion_data = self.robot.set_dynamic_motion_data(0.2)
-            motion = self.make_path(self.interval,0.01,motion_data)
+            motion_data.velocity_rel = rel_velocity * 5.0 * velocity_multiplier
+            motion, path = self.make_path(self.interval,0.01,motion_data)
             # self.robot.velocity_rel = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel)
 
             print("Non-extrusion move...")
@@ -88,7 +95,7 @@ class GCodeCommands():
         if (self.read_param(self.interval[0],'X') is not False) or (self.read_param(self.interval[0],'Y') is not False) or (self.read_param(self.interval[0],'Z') is not False):
 
             # setting this to 1800 because reasons...
-            #F = 1800.0
+            # F = 1800.0
             velocity_multiplier = 1.0
 
             # set dynamic rel and relative max velocity based on feedrate
@@ -99,7 +106,7 @@ class GCodeCommands():
             motion_data.velocity_rel = rel_velocity * 5.0 * velocity_multiplier
 
             # Make path motion trajectory, the additional path is the more fancy one that is not yet implemented in Robot.move() but used for its time parametrization states
-            path_motion, path = self.make_path(self.interval,0.001,motion_data)  # PathMotion gives smooth movement compared to WayPointMovement
+            path_motion, path = self.make_path(self.interval,0.0001,motion_data)  # PathMotion gives smooth movement compared to WayPointMovement
 
             # set extrusion speed if needed. Some slicers use G1 for non extrusion moves...
             if self.read_param(self.interval[0],'E') is not False:

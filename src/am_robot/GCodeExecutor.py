@@ -634,10 +634,10 @@ class GCodeExecutor(GCodeCommands):
         print(f"Angle between plane normals - Rotation around x-axis: {x_rot*180/math.pi}")
         print(f"Angle between plane normals - Rotation around y-axis: {y_rot*180/math.pi}")
 
-        T = self.robot.make_affine_object(0.0, 0.0, 0.0, a=0.0, b=-y_rot, c=x_rot)
+        T = self.robot.make_affine_object(0.0, 0.0, 0.0, a=0.0, b=y_rot, c=-x_rot)
         self.T_robot_bed = T
         self.robot.tool_frame = self.robot.tool_frame * self.T_robot_bed
-        self.bed_plane_transformation_matrix = self.rotation_matrix(x_rot=-x_rot,y_rot=y_rot)
+        self.bed_plane_transformation_matrix = self.rotation_matrix(x_rot=x_rot,y_rot=-y_rot)
 
     def rotation_matrix(self,x_rot=0.0,y_rot=0.0,z_rot=0.0):
         # Rz = np.matrix([[math.cos(z_rot),-math.sin(z_rot), 0.0,0.0],
@@ -767,7 +767,12 @@ class GCodeExecutor(GCodeCommands):
         """
         v1_u = self.unit_vector(v1)
         v2_u = self.unit_vector(v2)
-        return np.arccos(np.clip(np.dot(v1_u, v2_u), -3.14, 3.14))
+        angle = np.arccos(np.clip(np.dot(v1_u, v2_u), -3.14, 3.14))
+        if np.count_nonzero(v1) == len(v1):
+            return angle
+        else:
+            values = v1[np.nonzero(v1)]
+            return np.sign(values[0])*angle
 
     def slope_angles(self,start_point,end_point):
         # Find tangent vector from point to point
