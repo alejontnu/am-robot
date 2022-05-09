@@ -35,7 +35,7 @@ class GCodeCommands():
         print("Disable motors - Only disables extruder motor")
         self.tool.set_feedrate(0.0)
 
-    def M104(self):
+    def M1044(self):
         print("Setting hotend reference temperature")
         self.tool.set_nozzletemp(self.read_param(self.interval[0],'S'))
 
@@ -49,7 +49,7 @@ class GCodeCommands():
     def M107(self):
         print("Fan off - Not implemented")
 
-    def M109(self):
+    def M1049(self):
         print("Setting and waiting for hotend temperature")
         if self.read_param(self.interval[0],'S') is not False:
             temp_ref = self.read_param(self.interval[0],'S')
@@ -100,7 +100,7 @@ class GCodeCommands():
 
             # set dynamic rel and relative max velocity based on feedrate
             rel_velocity = self.tool.calculate_max_rel_velocity(self.F,self.robot.max_cart_vel*1000)
-            # self.robot.set_velocity_rel(rel_velocity)
+            #self.robot.set_velocity_rel(rel_velocity)
 
             motion_data = self.robot.set_dynamic_motion_data(0.2)
             motion_data.velocity_rel = rel_velocity * 5.0 * velocity_multiplier

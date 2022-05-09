@@ -913,11 +913,11 @@ class GCodeExecutor(GCodeCommands):
                 if abs(x_rot) > abs(self.x_rot):
                     self.x_rot = x_rot
                 if point == interval[0]:
-                    first_point = self.robot.make_affine_object(z_translation[0],z_translation[1],z_translation[2],b=self.y_rot,c=self.x_rot)
+                    first_point = self.robot.make_affine_object(z_translation[0],z_translation[1],z_translation[2],b=self.y_rot,c=-self.x_rot)
                     path_points.append(first_point)
                     self.robot.execute_reaction_move(frame=self.robot.tool_frame,motion=self.robot.make_linear_motion(first_point),data=motion_data)
                     self.robot.recover_from_errors()
-            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2],b=self.y_rot,c=self.x_rot)
+            affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2],b=self.y_rot,c=-self.x_rot)
             path_points.append(affine)
         path_motion, path = self.robot.make_path_motion(path_points,corner_blending)
         if self.extrusion_mode == 'absolute':
