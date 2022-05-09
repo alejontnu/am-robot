@@ -1182,9 +1182,9 @@ class GCodeExecutor(GCodeCommands):
         plt.plot(t_list, a_list, label='acceleration')
         plt.plot(t_list, j_list, label='jerk')
         plt.legend()
+        plt.title('Time parametrization of path motion')
         plt.grid(True)
-
-        plt.xlabel('t')
+        plt.xlabel('t (s)')
         plt.ylabel('m, m/s, m/s2, m/s3')
 
         plt.show()

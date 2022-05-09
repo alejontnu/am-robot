@@ -35,7 +35,7 @@ class GCodeCommands():
         print("Disable motors - Only disables extruder motor")
         self.tool.set_feedrate(0.0)
 
-    def M1044(self):
+    def M104(self):
         print("Setting hotend reference temperature")
         self.tool.set_nozzletemp(self.read_param(self.interval[0],'S'))
 
@@ -49,7 +49,7 @@ class GCodeCommands():
     def M107(self):
         print("Fan off - Not implemented")
 
-    def M1049(self):
+    def M109(self):
         print("Setting and waiting for hotend temperature")
         if self.read_param(self.interval[0],'S') is not False:
             temp_ref = self.read_param(self.interval[0],'S')
@@ -113,27 +113,32 @@ class GCodeCommands():
 
                 # Due to no state feedback, extrusion is set as an approximate average
                 self.tool.set_feedrate(self.F * rel_velocity * velocity_multiplier)
-                # parametrize the path to get states
+                # print(self.F * rel_velocity * velocity_multiplier)
+                # # parametrize the path to get states
                 # timestep = 0.01
-                # vel_rels = [self.robot.robot.velocity_rel*self.robot.max_cart_vel]*7  # *7 for a 7 element list. 0.395 because ???
+                # vel_rels = [motion_data.velocity_rel*self.robot.robot.velocity_rel]*7  # *7 for a 7 element list. 0.395 because ???
+                # #vel_rels = [self.robot.robot.velocity_rel*self.robot.max_cart_vel]*7
+                # #vel_rels = [rel_velocity*self.robot.max_cart_vel]*7
                 # accel_rels = [self.robot.robot.acceleration_rel*self.robot.max_cart_acc]*7
                 # jerk_rels = [self.robot.robot.jerk_rel*self.robot.max_cart_jerk]*7
+
+                # print(vel_rels)
 
                 # # print(f"vel_rel: {vel_rels}")
                 # # print(f"accel_rel: {accel_rels}")
                 # # print(f"jerk_rel: {jerk_rels}")
 
                 # t_list, s_list, v_list, a_list, j_list = self.robot.parametrize_path(path,timestep,vel_rels,accel_rels,jerk_rels)
-
                 # path_time = len(t_list) * timestep
 
-                # Simple average
-                # average_extrusion_velocity = (self.path_extrusion / path_time) * 60
-                # self.tool.set_feedrate(average_extrusion_velocity)
-                # print(f"Path time: {path_time}s")
+                # # Plot the extrusion velocity profile
+                # # self.plot_cart_path(t_list, s_list, v_list, a_list, j_list)
 
-                # Plot the extrusion velocity profile
-                # self.plot_cart_path(t_list, s_list, v_list, a_list, j_list)
+                # # Simple average
+                # average_extrusion_velocity = (self.path_extrusion / path_time) * 60
+                # print(f"Average ex: {average_extrusion_velocity}")
+                # #self.tool.set_feedrate(average_extrusion_velocity)
+                # print(f"Path time: {path_time}s")
 
             # start = time.perf_counter()
             # feed path motion to robot and move using a separate thread
