@@ -101,6 +101,7 @@ class GCodeExecutor(GCodeCommands):
 
         # default planar bed
         self.bed_plane_abcd = [0,0,0,0]
+        self.next_segment = False
 
     def get_interval(self):
         '''
@@ -512,6 +513,11 @@ class GCodeExecutor(GCodeCommands):
         self.robot.set_dynamic_rel(0.1)
         base_point = np.array([x,y,z])
         transformed_point = np.matmul(self.bed_plane_transformation_matrix,base_point)
+        if self.next_segment:
+            transformed_point = np.matmul(self.active_plane,transformed_point)
+            transformed_point[0] += self.active_displacement[0]
+            transformed_point[1] += self.active_displacement[1]
+            transformed_point[2] += self.active_displacement[2]
         motion = self.robot.make_linear_motion(self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2]))
         self.robot.execute_move(frame=self.robot.tool_frame,motion=motion)
         self.robot.recover_from_errors()
@@ -846,6 +852,11 @@ class GCodeExecutor(GCodeCommands):
                     self.__dict__[key] = self.read_param(point,key)
             base_point = np.array([self.X,self.Y,self.Z])
             transformed_point = np.matmul(self.bed_plane_transformation_matrix,base_point)
+            if self.next_segment:
+                transformed_point = np.matmul(self.active_plane,transformed_point)
+                transformed_point[0] += self.active_displacement[0]
+                transformed_point[1] += self.active_displacement[1]
+                transformed_point[2] += self.active_displacement[2]
             affine = self.robot.make_affine_object(transformed_point[0] + self.gcode_home_pose_vec[0],transformed_point[1] + self.gcode_home_pose_vec[1],transformed_point[2] + self.gcode_home_pose_vec[2])
             affines.append(affine)
         for affine, velocity_rel in affines, velocity_rels:
@@ -895,6 +906,11 @@ class GCodeExecutor(GCodeCommands):
                         self.path_extrusion = self.__dict__[key]
             base_point = np.array([self.X,self.Y,self.Z])
             transformed_point = np.matmul(self.bed_plane_transformation_matrix,base_point)
+            if self.next_segment:
+                transformed_point = np.matmul(self.active_plane,transformed_point)
+                transformed_point[0] += self.active_displacement[0]
+                transformed_point[1] += self.active_displacement[1]
+                transformed_point[2] += self.active_displacement[2]
             
             # Pure translation for non-extrusion move, using previous rotation
             if self.read_param(point,'E') is False:
@@ -944,6 +960,11 @@ class GCodeExecutor(GCodeCommands):
 
         base_point = np.array([self.read_param(line_number,'X'),self.read_param(line_number,'Y'),self.Z])
         transformed_point = np.matmul(self.bed_plane_transformation_matrix,base_point)
+        if self.next_segment:
+            transformed_point = np.matmul(self.active_plane,transformed_point)
+            transformed_point[0] += self.active_displacement[0]
+            transformed_point[1] += self.active_displacement[1]
+            transformed_point[2] += self.active_displacement[2]
         return transformed_point[0] + self.gcode_home_pose_vec[0], transformed_point[1] + self.gcode_home_pose_vec[1], transformed_point[2] + self.gcode_home_pose_vec[2]
 
     def run_code_segments(self):

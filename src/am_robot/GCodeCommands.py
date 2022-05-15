@@ -219,8 +219,20 @@ class GCodeCommands():
         # Stop retraction/un-retraction
         self.tool.set_feedrate(0.0)
 
+        motion_data = self.robot.set_dynamic_motion_data(0.2)
+        move_one = self.robot.make_affine_object(-0.05,0.0,0.05)
+        m1 = self.robot.make_linear_relative_motion(move_one)
+        self.robot.execute_reaction_move(frame=self.robot.tool_frame,motion=m1,data=motion_data)
+        self.robot.recover_from_errors()   
+
     def G11(self):
         print("Recover move (after retraction) - hardware 2mm")
+        motion_data = self.robot.set_dynamic_motion_data(0.2)
+        move_two = self.robot.make_affine_object(0.05,0.0,-0.05)
+        m2 = self.robot.make_linear_relative_motion(move_two)
+        self.robot.execute_reaction_move(frame=self.robot.tool_frame,motion=m2,data=motion_data)
+        self.robot.recover_from_errors()
+
         sleep_time = 2.0/60.0
 
         # set retraction/un-retraction feedrate
@@ -300,6 +312,12 @@ class GCodeCommands():
                 self.robot.recover_from_errors()
         except AttributeError:
             pass
+
+    def G1001(self):
+        # Hardcoded swap to next segment by a transformation of coordinates
+        self.next_segment = True
+        self.active_plane = self.rotation_matrix(y_rot=0.32175)
+        self.active_displacement = [0.0,0.0,0.015]
 
 
 # Call commands like so:
