@@ -906,12 +906,12 @@ class GCodeExecutor(GCodeCommands):
                         self.path_extrusion = self.__dict__[key]
             base_point = np.array([self.X,self.Y,self.Z])
             transformed_point = np.matmul(self.bed_plane_transformation_matrix,base_point)
-            if self.next_segment:
+            if self.next_segment is True:
                 transformed_point = np.matmul(self.active_plane,transformed_point)
                 transformed_point[0] += self.active_displacement[0]
                 transformed_point[1] += self.active_displacement[1]
                 transformed_point[2] += self.active_displacement[2]
-            
+
             # Pure translation for non-extrusion move, using previous rotation
             if self.read_param(point,'E') is False:
                 # y_rot = -z_translation[4]

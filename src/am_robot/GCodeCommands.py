@@ -35,7 +35,7 @@ class GCodeCommands():
         print("Disable motors - Only disables extruder motor")
         self.tool.set_feedrate(0.0)
 
-    def M104(self):
+    def M1044(self):
         print("Setting hotend reference temperature")
         self.tool.set_nozzletemp(self.read_param(self.interval[0],'S'))
 
@@ -49,7 +49,7 @@ class GCodeCommands():
     def M107(self):
         print("Fan off - Not implemented")
 
-    def M109(self):
+    def M1094(self):
         print("Setting and waiting for hotend temperature")
         if self.read_param(self.interval[0],'S') is not False:
             temp_ref = self.read_param(self.interval[0],'S')
@@ -316,8 +316,9 @@ class GCodeCommands():
     def G1001(self):
         # Hardcoded swap to next segment by a transformation of coordinates
         self.next_segment = True
-        self.active_plane = self.rotation_matrix(y_rot=0.32175)
-        self.active_displacement = [0.0,0.0,0.015]
+        self.active_plane = self.rotation_matrix(y_rot=0.46365)
+        print(self.active_plane)
+        self.active_displacement = [0.0,0.0,0.007]
 
 
 # Call commands like so:
