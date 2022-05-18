@@ -102,6 +102,7 @@ class GCodeExecutor(GCodeCommands):
         # default planar bed
         self.bed_plane_abcd = [0,0,0,0]
         self.next_segment = False
+        self.use_frenet_serret = True
 
     def get_interval(self):
         '''
@@ -924,9 +925,9 @@ class GCodeExecutor(GCodeCommands):
                     path_points.append(start_pose)
             else:
                 [x_rot,y_rot,slope] = self.slope_angles(start_point,base_point)
-                if abs(y_rot) > abs(self.y_rot):
+                if abs(y_rot) > abs(self.y_rot) and self.use_frenet_serret is True:
                     self.y_rot = y_rot
-                if abs(x_rot) > abs(self.x_rot):
+                if abs(x_rot) > abs(self.x_rot) and self.use_frenet_serret is True:
                     self.x_rot = x_rot
                 if point == interval[0]:
                     first_point = self.robot.make_affine_object(z_translation[0],z_translation[1],z_translation[2],b=self.y_rot,c=-self.x_rot)

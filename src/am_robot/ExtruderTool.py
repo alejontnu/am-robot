@@ -83,7 +83,7 @@ class ExtruderTool(AbstractTool):
         feedrate = self.convert_per_minute_to_per_second(feedrate)
         motor_frequency = self.feedrate_to_motor_frequency(feedrate)
         packed = struct.pack('f',motor_frequency)
-        #self.ser.write(b'X'+packed)  # + 4 bytes of number
+        self.ser.write(b'X'+packed)  # + 4 bytes of number
 
     def set_nozzletemp(self,temperature):
         '''

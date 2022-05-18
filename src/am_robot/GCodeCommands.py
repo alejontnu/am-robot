@@ -35,7 +35,7 @@ class GCodeCommands():
         print("Disable motors - Only disables extruder motor")
         self.tool.set_feedrate(0.0)
 
-    def M1044(self):
+    def M104(self):
         print("Setting hotend reference temperature")
         self.tool.set_nozzletemp(self.read_param(self.interval[0],'S'))
 
@@ -49,7 +49,7 @@ class GCodeCommands():
     def M107(self):
         print("Fan off - Not implemented")
 
-    def M1094(self):
+    def M109(self):
         print("Setting and waiting for hotend temperature")
         if self.read_param(self.interval[0],'S') is not False:
             temp_ref = self.read_param(self.interval[0],'S')
@@ -319,6 +319,9 @@ class GCodeCommands():
         self.active_plane = self.rotation_matrix(y_rot=0.46365)
         print(self.active_plane)
         self.active_displacement = [0.0,0.0,0.007]
+
+    def G1002(self):
+        self.use_frenet_serret = False
 
 
 # Call commands like so:
