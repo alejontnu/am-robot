@@ -316,12 +316,15 @@ class GCodeCommands():
     def G1001(self):
         # Hardcoded swap to next segment by a transformation of coordinates
         self.next_segment = True
-        self.active_plane = self.rotation_matrix(y_rot=0.46365)
+        self.active_plane = self.rotation_matrix(y_rot=0.32175)  # 2:1 = 0.46365
         print(self.active_plane)
-        self.active_displacement = [0.0,0.0,0.007]
+        self.active_displacement = [0.0,0.0,0.015]
 
     def G1002(self):
         self.use_frenet_serret = False
+    
+    def G1003(self):
+        input("waiting to model is replaced...")
 
 
 # Call commands like so:
